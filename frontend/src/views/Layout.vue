@@ -1,6 +1,12 @@
 <template>
-  <div class="layout-container">
-    <header class="layout-header">
+  <div class="layout-container" ref="containerRef" @scroll="onScroll">
+    <header
+      class="layout-header"
+      :class="{
+        'header-scrolled': isScrolled,
+        'header-compact': isCompact
+      }"
+    >
       <div class="header-inner">
         <div class="logo-area">
           <div class="logo-icon">P</div>
@@ -17,9 +23,6 @@
             <span>{{ tab.label }}</span>
           </div>
         </nav>
-        <div class="header-right">
-          <span class="version-text">v1.0.0</span>
-        </div>
       </div>
     </header>
     <main class="layout-body">
@@ -29,7 +32,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { List, Setting } from '@element-plus/icons-vue'
 
@@ -46,59 +49,80 @@ const tabs = [
 const handleTabClick = (path) => {
   router.push(path)
 }
+
+const containerRef = ref(null)
+const isScrolled = ref(false)
+const isCompact = ref(false)
+
+const HEADER_HEIGHT = 60
+const COMPACT_THRESHOLD = 200
+
+const onScroll = () => {
+  const container = containerRef.value
+  if (!container) return
+
+  const requirementBody = container.querySelector('.requirement-body')
+  if (!requirementBody) return
+
+  const headerBottom = HEADER_HEIGHT / 2
+  const rect = requirementBody.getBoundingClientRect()
+
+  isScrolled.value = rect.top <= headerBottom
+
+  if (isScrolled.value) {
+    const overflow = headerBottom - rect.top
+    isCompact.value = overflow > COMPACT_THRESHOLD
+  } else {
+    isCompact.value = false
+  }
+}
 </script>
 
 <style scoped>
 .layout-container {
   height: 100vh;
-  display: flex;
-  flex-direction: column;
+  overflow-y: auto;
   background: #FFFFFF;
 }
 
 .layout-header {
-  flex-shrink: 0;
-  position: relative;
-  z-index: 10;
-  border-bottom: 1px solid rgba(200, 215, 235, 0.4);
-  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  transition:
+    background-color 0.4s ease,
+    border-color 0.4s ease,
+    box-shadow 0.4s ease;
 }
 
-.layout-header::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 120% 80% at 20% 60%, rgba(190, 215, 245, 0.5) 0%, transparent 60%),
-    radial-gradient(ellipse 100% 90% at 80% 40%, rgba(210, 225, 250, 0.4) 0%, transparent 55%),
-    radial-gradient(ellipse 80% 60% at 50% 80%, rgba(230, 240, 255, 0.6) 0%, transparent 50%),
-    radial-gradient(ellipse 60% 40% at 70% 70%, rgba(200, 220, 248, 0.3) 0%, transparent 45%),
-    radial-gradient(ellipse 140% 100% at 30% 30%, rgba(220, 235, 255, 0.35) 0%, transparent 50%),
-    linear-gradient(180deg, #e8f0fa 0%, #f0f5fd 30%, #f5f9ff 60%, #eaf2fb 100%);
-  z-index: 0;
-}
-
-.layout-header::after {
-  content: '';
-  position: absolute;
-  top: -20%;
-  left: 40%;
-  width: 35%;
-  height: 80%;
-  background: radial-gradient(ellipse, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.2) 40%, transparent 70%);
-  filter: blur(10px);
-  z-index: 1;
-  pointer-events: none;
+.layout-header.header-scrolled {
+  background-color: rgba(255, 253, 249, 0.92);
+  border-bottom-color: rgba(181, 201, 168, 0.2);
+  box-shadow: 0 1px 8px rgba(156, 175, 136, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .header-inner {
-  position: relative;
-  z-index: 2;
   height: 60px;
   display: flex;
   align-items: center;
   padding: 0 24px;
   gap: 32px;
+  transition:
+    height 0.4s ease,
+    padding 0.4s ease,
+    gap 0.4s ease;
+}
+
+.layout-header.header-compact .header-inner {
+  height: 32px;
+  padding: 0 16px;
+  gap: 16px;
 }
 
 .logo-area {
@@ -106,6 +130,11 @@ const handleTabClick = (path) => {
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
+  transition: gap 0.4s ease;
+}
+
+.layout-header.header-compact .logo-area {
+  gap: 6px;
 }
 
 .logo-icon {
@@ -120,13 +149,30 @@ const handleTabClick = (path) => {
   font-weight: 700;
   font-size: 16px;
   box-shadow: 0 2px 8px rgba(120, 175, 220, 0.3);
+  transition:
+    width 0.4s ease,
+    height 0.4s ease,
+    font-size 0.4s ease,
+    border-radius 0.4s ease;
+}
+
+.layout-header.header-compact .logo-icon {
+  width: 22px;
+  height: 22px;
+  font-size: 11px;
+  border-radius: 6px;
 }
 
 .logo-text {
-  color: #3a5a80;
+  color: #1a1a1a;
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.03em;
+  transition: font-size 0.4s ease;
+}
+
+.layout-header.header-compact .logo-text {
+  font-size: 12px;
 }
 
 .header-nav {
@@ -134,6 +180,12 @@ const handleTabClick = (path) => {
   align-items: center;
   gap: 4px;
   flex: 1;
+  justify-content: flex-end;
+  transition: gap 0.4s ease;
+}
+
+.layout-header.header-compact .header-nav {
+  gap: 2px;
 }
 
 .nav-tab {
@@ -145,37 +197,39 @@ const handleTabClick = (path) => {
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  color: #4a6a8a;
-  transition: all 0.25s ease;
+  color: #1a1a1a;
+  transition:
+    all 0.25s ease,
+    padding 0.4s ease,
+    font-size 0.4s ease,
+    gap 0.4s ease;
   user-select: none;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
 }
 
 .nav-tab:hover {
-  background: rgba(255, 255, 255, 0.5);
-  color: #2a4a6a;
+  background: rgba(0, 0, 0, 0.05);
+  color: #000000;
 }
 
 .nav-tab.active {
-  background: rgba(255, 255, 255, 0.6);
-  color: #2a6ab0;
+  background: rgba(0, 0, 0, 0.08);
+  color: #000000;
   font-weight: 600;
-  box-shadow: 0 1px 4px rgba(100, 160, 220, 0.12);
 }
 
-.header-right {
-  flex-shrink: 0;
+.layout-header.header-compact .nav-tab {
+  padding: 4px 10px;
+  font-size: 11px;
+  gap: 3px;
+  border-radius: 5px;
 }
 
-.version-text {
-  color: #8aa0b8;
-  font-size: 12px;
+.layout-header.header-compact .nav-tab :deep(.el-icon) {
+  font-size: 12px !important;
 }
 
 .layout-body {
-  flex: 1;
-  overflow: auto;
-  padding: 24px;
+  padding-top: 60px;
+  min-height: 100vh;
 }
 </style>

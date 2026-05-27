@@ -1,57 +1,67 @@
 <template>
   <div class="requirement-summary">
-    <div class="page-header">
-      <div class="page-header-center">
-        <h1 class="page-title">Android</h1>
+    <HeroBanner />
+
+    <div class="requirement-body">
+      <div class="page-header">
+        <div class="page-header-center">
+          <h1 class="page-title">Android</h1>
+        </div>
+        <div class="page-header-right">
+          <el-button size="small" :icon="Edit" @click="handleEditModule" :disabled="!currentModuleId">重命名</el-button>
+          <el-button size="small" type="primary" :icon="CopyDocument" @click="handleCopyToClipboard" :disabled="!currentModuleId">复制到剪贴板</el-button>
+        </div>
       </div>
-      <div class="page-header-right">
-        <el-button size="small" :icon="Edit" @click="handleEditModule" :disabled="!currentModuleId">重命名</el-button>
-        <el-button size="small" type="primary" :icon="CopyDocument" @click="handleCopyToClipboard" :disabled="!currentModuleId">复制到剪贴板</el-button>
+
+      <div class="module-bar">
+        <div class="module-tabs">
+          <div
+            v-for="mod in modules"
+            :key="mod.id"
+            class="module-tab"
+            :class="{ active: currentModuleId === mod.id }"
+            @click="selectModule(mod.id)"
+          >
+            <span class="module-tab-name">{{ mod.name }}</span>
+            <el-icon class="module-tab-close" @click.stop="handleDeleteModule(mod)"><Close /></el-icon>
+          </div>
+          <el-button size="small" :icon="Plus" @click="showAddModule = true" text>新增模块</el-button>
+        </div>
+      </div>
+
+      <div v-if="currentModuleId" class="task-content">
+        <div class="task-section">
+          <div class="section-header">
+            <div class="section-title-group">
+              <div class="section-dot today-dot"></div>
+              <h3 class="section-title">今日任务</h3>
+              <span class="section-count">{{ todayCount }}</span>
+            </div>
+          </div>
+          <TodayTaskList :module-id="currentModuleId" ref="todayTaskRef" @moved-to-todo="onMovedToTodo" />
+        </div>
+        <div class="task-section">
+          <div class="section-header">
+            <div class="section-title-group">
+              <div class="section-dot todo-dot"></div>
+              <h3 class="section-title">待办任务</h3>
+              <span class="section-count">{{ todoCount }}</span>
+            </div>
+          </div>
+          <TodoPool :module-id="currentModuleId" ref="todoPoolRef" @moved-to-today="onMovedToToday" />
+        </div>
+      </div>
+      <div v-else class="empty-area">
+        <div class="empty-bg"></div>
+        <el-empty description="请先创建一个任务模块" />
       </div>
     </div>
 
-    <div class="module-bar">
-      <div class="module-tabs">
-        <div
-          v-for="mod in modules"
-          :key="mod.id"
-          class="module-tab"
-          :class="{ active: currentModuleId === mod.id }"
-          @click="selectModule(mod.id)"
-        >
-          <span class="module-tab-name">{{ mod.name }}</span>
-          <el-icon class="module-tab-close" @click.stop="handleDeleteModule(mod)"><Close /></el-icon>
-        </div>
-        <el-button size="small" :icon="Plus" @click="showAddModule = true" text>新增模块</el-button>
-      </div>
-    </div>
-
-    <div v-if="currentModuleId" class="task-content">
-      <div class="task-section">
-        <div class="section-header">
-          <div class="section-title-group">
-            <div class="section-dot today-dot"></div>
-            <h3 class="section-title">今日任务</h3>
-            <span class="section-count">{{ todayCount }}</span>
-          </div>
-        </div>
-        <TodayTaskList :module-id="currentModuleId" ref="todayTaskRef" @moved-to-todo="onMovedToTodo" />
-      </div>
-      <div class="task-section">
-        <div class="section-header">
-          <div class="section-title-group">
-            <div class="section-dot todo-dot"></div>
-            <h3 class="section-title">待办任务</h3>
-            <span class="section-count">{{ todoCount }}</span>
-          </div>
-        </div>
-        <TodoPool :module-id="currentModuleId" ref="todoPoolRef" @moved-to-today="onMovedToToday" />
-      </div>
-    </div>
-    <div v-else class="empty-area">
-      <div class="empty-bg"></div>
-      <el-empty description="请先创建一个任务模块" />
-    </div>
+    <AboutSection />
+    <DateRoulette />
+    <ConcertSection />
+    <NewsSection />
+    <CastSection />
 
     <el-dialog v-model="showAddModule" title="新增任务模块" width="400px" @close="newModuleName = ''">
       <el-form @submit.prevent="handleAddModule">
@@ -85,6 +95,12 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, CopyDocument, Close } from '@element-plus/icons-vue'
 import TodayTaskList from './TodayTaskList.vue'
 import TodoPool from './TodoPool.vue'
+import HeroBanner from './HeroBanner.vue'
+import AboutSection from './AboutSection.vue'
+import DateRoulette from './DateRoulette.vue'
+import ConcertSection from './ConcertSection.vue'
+import NewsSection from './NewsSection.vue'
+import CastSection from './CastSection.vue'
 import {
   getTaskModules,
   createTaskModule,
@@ -258,8 +274,13 @@ onMounted(async () => {
 
 <style scoped>
 .requirement-summary {
-  height: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+.requirement-body {
   max-width: 1200px;
+  margin: 0 auto;
+  padding: 48px 24px 24px;
 }
 .page-header {
   display: flex;
@@ -332,13 +353,13 @@ onMounted(async () => {
   box-shadow: 0 2px 8px rgba(125, 155, 109, 0.1);
 }
 .module-tab.active {
-  background: linear-gradient(135deg, #5B8DEF 0%, #7BA4F3 100%);
-  border-color: rgba(91, 141, 239, 0.3);
-  color: #FFFFFF;
-  box-shadow: 0 2px 10px rgba(91, 141, 239, 0.2);
+  background: rgba(91, 141, 239, 0.08);
+  border-color: rgba(91, 141, 239, 0.25);
+  color: #4A7AE6;
+  box-shadow: 0 1px 4px rgba(91, 141, 239, 0.06);
 }
 .module-tab.active .module-tab-close {
-  color: rgba(255,255,255,0.7);
+  color: rgba(74, 122, 230, 0.6);
 }
 .module-tab-close {
   font-size: 12px;
@@ -355,22 +376,16 @@ onMounted(async () => {
   gap: 24px;
 }
 .task-section {
-  background: rgba(255, 253, 249, 0.75);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-radius: 16px;
-  border: 1px solid rgba(181, 201, 168, 0.2);
-  padding: 24px 28px;
-  transition: min-height 0.3s ease, box-shadow 0.25s ease, border-color 0.25s ease;
-  box-shadow:
-    0 1px 4px rgba(156, 175, 136, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  background: #FDFCF8;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 20px 24px;
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 .task-section:hover {
-  box-shadow:
-    0 4px 16px rgba(156, 175, 136, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  border-color: rgba(156, 175, 136, 0.35);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.1);
 }
 .section-header {
   margin-bottom: 18px;
@@ -387,12 +402,10 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 .today-dot {
-  background: linear-gradient(135deg, #9CAF88, #7D9B6D);
-  box-shadow: 0 0 5px rgba(125, 155, 109, 0.25);
+  background: #7D9B6D;
 }
 .todo-dot {
-  background: linear-gradient(135deg, #D4C5A9, #C2B08A);
-  box-shadow: 0 0 5px rgba(194, 176, 138, 0.25);
+  background: #C2A86A;
 }
 .section-title {
   margin: 0;
@@ -409,10 +422,10 @@ onMounted(async () => {
   height: 20px;
   padding: 0 6px;
   border-radius: 10px;
-  background: rgba(181, 201, 168, 0.18);
+  background: rgba(0, 0, 0, 0.04);
   font-size: 11px;
   font-weight: 600;
-  color: #7D9B6D;
+  color: #666;
 }
 .empty-area {
   position: relative;
@@ -421,12 +434,10 @@ onMounted(async () => {
   justify-content: center;
   min-height: 400px;
   overflow: hidden;
-  background: rgba(255, 253, 249, 0.6);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-radius: 16px;
-  border: 1px solid rgba(181, 201, 168, 0.2);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  background: #FDFCF8;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 .empty-bg {
   position: absolute;

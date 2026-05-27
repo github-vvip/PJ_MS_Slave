@@ -26,6 +26,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('api.urls')),
     path('assets/<path:path>', serve, {'document_root': settings.VUE_DIST_DIR / 'assets'}),
+    path('DBbackup/<path:path>', serve, {'document_root': 'E:/PJ_MS_Slave/DBbackup'}),
     path('', serve_vue_app, name='vue-app'),
     path('<path:path>', serve_vue_app, name='vue-app-catch-all'),
 ]

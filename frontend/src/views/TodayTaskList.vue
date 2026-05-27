@@ -239,16 +239,18 @@ defineExpose({ loadTasks, taskList })
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
-  margin-bottom: 4px;
-  border-radius: 12px;
-  border: 1px solid rgba(181, 201, 168, 0.18);
-  transition: all 0.25s ease;
+  padding: 10px 14px 10px 18px;
+  margin-bottom: 2px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-left: 3px solid rgba(125, 155, 109, 0.25);
+  background: #EDF2F0;
+  transition: all 0.2s ease;
   cursor: default;
 }
 .task-row:hover {
-  background: rgba(181, 201, 168, 0.12);
-  border-color: rgba(156, 175, 136, 0.3);
+  background: #E2E8E5;
+  border-left-color: #7D9B6D;
 }
 .task-completed {
   opacity: 0.45;
@@ -261,9 +263,9 @@ defineExpose({ loadTasks, taskList })
   min-width: 0;
 }
 .task-order {
-  color: #B5C0A8;
-  font-weight: 600;
-  font-size: 13px;
+  color: #bbb;
+  font-weight: 500;
+  font-size: 12px;
   min-width: 20px;
   text-align: right;
 }
@@ -271,15 +273,15 @@ defineExpose({ loadTasks, taskList })
   flex: 1;
   word-break: break-all;
   font-size: 14px;
-  color: #3D4A3E;
+  color: #333;
 }
 .line-through {
   text-decoration: line-through;
-  color: #9CA89A;
+  color: #aaa;
 }
 .task-remarks {
   font-size: 12px;
-  color: #9CA89A;
+  color: #999;
   max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -300,7 +302,7 @@ defineExpose({ loadTasks, taskList })
 .empty-hint {
   text-align: center;
   padding: 32px 0;
-  color: #9CA89A;
+  color: #bbb;
   font-size: 13px;
 }
 </style>

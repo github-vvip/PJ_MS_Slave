@@ -32,6 +32,9 @@
         <el-select v-model="filterScreenSize" placeholder="屏幕尺寸" clearable class="filter-select filter-select-screen" size="small" @change="loadProjects">
           <el-option v-for="v in uniqueScreenSizes" :key="v" :label="v" :value="v" />
         </el-select>
+        <el-select v-model="filterTP" placeholder="TP" clearable class="filter-select" size="small" @change="loadProjects">
+          <el-option v-for="v in uniqueTPs" :key="v" :label="v" :value="v" />
+        </el-select>
         <button class="reset-btn" v-ripple @click="resetFilters">
           <el-icon class="reset-icon"><RefreshLeft /></el-icon>
           <span>重置</span>
@@ -219,6 +222,7 @@
             <div class="el-upload__text">将 Excel 文件拖到此处，或<em>点击上传</em></div>
             <template #tip>
               <div class="el-upload__tip">仅支持 .xlsx / .xls 格式</div>
+              <div class="el-upload__tip">表头需要在3行内，1 / 2 / 3任意一行都可以自动识别</div>
             </template>
           </el-upload>
         </div>
@@ -232,7 +236,21 @@
           </div>
           <div class="import-preview-table-wrapper">
             <el-table :data="importParsedData.slice(0, 10)" border size="small" max-height="320">
-              <el-table-column v-for="col in importPreviewColumns" :key="col.key" :prop="col.key" :label="col.label" min-width="100" show-overflow-tooltip />
+              <el-table-column
+                v-for="col in importPreviewColumns"
+                :key="col.key"
+                :prop="col.key"
+                :label="col.label"
+                min-width="100"
+                show-overflow-tooltip
+                :class-name="col.unmatched ? 'unmatched-col' : ''"
+                :header-cell-class-name="col.unmatched ? 'unmatched-header' : ''"
+              >
+                <template #header v-if="col.unmatched">
+                  <span class="unmatched-label">{{ col.label }}</span>
+                  <el-tag size="small" type="info" effect="plain" class="unmatched-tag">未识别</el-tag>
+                </template>
+              </el-table-column>
             </el-table>
             <div v-if="importParsedData.length > 10" class="import-preview-more">仅预览前 10 条，共 {{ importParsedData.length }} 条</div>
           </div>
@@ -367,6 +385,7 @@ const searchText = ref('')
 const filterHardware = ref([])
 const filterAndroid = ref([])
 const filterScreenSize = ref('')
+const filterTP = ref('')
 const currentPage = ref(1)
 const pageSize = ref(15)
 const showForm = ref(false)
@@ -421,6 +440,10 @@ const uniqueScreenSizes = computed(() => {
   return [...new Set(projectList.value.map(p => p.screen_size).filter(Boolean))]
 })
 
+const uniqueTPs = computed(() => {
+  return [...new Set(projectList.value.map(p => p.tp).filter(Boolean))]
+})
+
 const onTabsWheel = (e) => {
   if (!tabsRef.value) return
   tabsRef.value.scrollLeft += e.deltaY > 0 ? 120 : -120
@@ -459,6 +482,7 @@ const loadProjects = async () => {
     if (filterHardware.value.length > 0) params.hardware_version = filterHardware.value.join(',')
     if (filterAndroid.value.length > 0) params.android_version = filterAndroid.value.join(',')
     if (filterScreenSize.value) params.screen_size = filterScreenSize.value
+    if (filterTP.value) params.tp = filterTP.value
     projectList.value = await getProjects(params)
   } catch (e) {
     ElMessage.error('加载项目列表失败')
@@ -480,6 +504,7 @@ const resetFilters = () => {
   filterHardware.value = []
   filterAndroid.value = []
   filterScreenSize.value = ''
+  filterTP.value = ''
   currentCustomerId.value = null
   currentPage.value = 1
   loadProjects()
@@ -828,7 +853,7 @@ const parseImportFile = () => {
             testMapping[field] = idx
             matchCount++
           } else if (!field) {
-            testUnmatched.push(header)
+            testUnmatched.push({ header, idx })
           }
         })
 
@@ -842,7 +867,7 @@ const parseImportFile = () => {
 
       const fieldMapping = bestFieldMapping
       const unmatched = bestUnmatched
-      importUnmatchedHeaders.value = unmatched
+      importUnmatchedHeaders.value = unmatched.map(u => u.header)
 
       const parsedRows = []
       for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
@@ -873,6 +898,12 @@ const parseImportFile = () => {
             if (rowData[field]) hasMatch = true
           }
         }
+        for (const u of unmatched) {
+          const val = row[u.idx]
+          if (val !== undefined && val !== null && String(val).trim()) {
+            rowData[`_unmatched_${u.idx}`] = String(val).trim()
+          }
+        }
         if (hasMatch && rowData.project_name && rowData.project_name.trim()) {
           parsedRows.push(rowData)
         }
@@ -883,7 +914,15 @@ const parseImportFile = () => {
       const previewCols = Object.keys(fieldMapping).map(f => ({
         key: f,
         label: allColumns.find(c => c.key === f)?.label || f,
+        unmatched: false,
       }))
+      for (const u of unmatched) {
+        previewCols.push({
+          key: `_unmatched_${u.idx}`,
+          label: u.header,
+          unmatched: true,
+        })
+      }
       importPreviewColumns.value = previewCols
 
       if (unmatched.length > 0) {
@@ -1495,5 +1534,29 @@ onBeforeUnmount(() => {
 }
 .import-result-errors li {
   line-height: 1.8;
+}
+
+.import-preview-table-wrapper :deep(.unmatched-header) {
+  background: #F1F5F9 !important;
+  color: #94A3B8 !important;
+}
+
+.import-preview-table-wrapper :deep(.unmatched-col) {
+  background: #F8FAFC;
+  color: #94A3B8;
+}
+
+.unmatched-label {
+  color: #94A3B8;
+  text-decoration: line-through;
+  text-decoration-color: #CBD5E1;
+}
+
+.unmatched-tag {
+  margin-left: 4px;
+  font-size: 10px;
+  height: 16px;
+  line-height: 16px;
+  padding: 0 4px;
 }
 </style>

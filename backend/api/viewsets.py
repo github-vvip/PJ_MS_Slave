@@ -141,6 +141,8 @@ class ProjectViewSet(viewsets.ModelViewSet):
         android_version = self.request.query_params.get('android_version')
         brand = self.request.query_params.get('brand')
         wifi = self.request.query_params.get('wifi')
+        screen_size = self.request.query_params.get('screen_size')
+        tp = self.request.query_params.get('tp')
 
         if customer_id:
             queryset = queryset.filter(customer_id=customer_id)
@@ -161,6 +163,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(brand=brand)
         if wifi:
             queryset = queryset.filter(wifi=wifi)
+        if screen_size:
+            queryset = queryset.filter(screen_size=screen_size)
+        if tp:
+            queryset = queryset.filter(tp=tp)
 
         return queryset
 
@@ -257,8 +263,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         hardware_versions = list(qs.values_list('hardware_version', flat=True).exclude(hardware_version='').distinct())
         android_versions = list(qs.values_list('android_version', flat=True).exclude(android_version='').distinct())
         brands = list(qs.values_list('brand', flat=True).exclude(brand='').distinct())
+        tps = list(qs.values_list('tp', flat=True).exclude(tp='').distinct())
         return Response({
             'hardware_versions': hardware_versions,
             'android_versions': android_versions,
             'brands': brands,
+            'tps': tps,
         })
