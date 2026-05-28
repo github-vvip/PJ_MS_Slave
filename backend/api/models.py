@@ -43,6 +43,21 @@ class TaskItem(models.Model):
         return f'{self.get_task_type_display()} - {self.content[:30]}'
 
 
+class HistorySnapshot(models.Model):
+    module_name = models.CharField('模块名称', max_length=100)
+    content = models.TextField('快照内容')
+    saved_at = models.DateTimeField('保存时间', auto_now_add=True)
+    content_hash = models.IntegerField('内容哈希', default=0)
+
+    class Meta:
+        ordering = ['-saved_at']
+        verbose_name = '历史快照'
+        verbose_name_plural = verbose_name
+
+    def __str__(self):
+        return f'{self.module_name} - {self.saved_at.strftime("%Y-%m-%d %H:%M")}'
+
+
 class Customer(models.Model):
     """客户表：按客户分组管理项目"""
     name = models.CharField('客户名称', max_length=100)

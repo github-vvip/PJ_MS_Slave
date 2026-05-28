@@ -5,8 +5,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Max, Q
-from .models import TaskModule, TaskItem, Customer, Project
-from .serializers import TaskModuleSerializer, TaskItemSerializer, CustomerSerializer, ProjectSerializer
+from .models import TaskModule, TaskItem, Customer, Project, HistorySnapshot
+from .serializers import TaskModuleSerializer, TaskItemSerializer, CustomerSerializer, ProjectSerializer, HistorySnapshotSerializer
 
 
 class TaskModuleViewSet(viewsets.ModelViewSet):
@@ -270,3 +270,84 @@ class ProjectViewSet(viewsets.ModelViewSet):
             'brands': brands,
             'tps': tps,
         })
+
+
+class HistorySnapshotViewSet(viewsets.ModelViewSet):
+    queryset = HistorySnapshot.objects.all()
+    serializer_class = HistorySnapshotSerializer
+
+    def get_queryset(self):
+        queryset = HistorySnapshot.objects.all()
+        module_name = self.request.query_params.get('module_name')
+        if module_name:
+            queryset = queryset.filter(module_name=module_name)
+        return queryset
+
+    @action(detail=False, methods=['post'], url_path='save-snapshot')
+    def save_snapshot(self, request):
+        module_name = request.data.get('module_name')
+        content = request.data.get('content', '')
+        content_hash = request.data.get('content_hash', 0)
+
+        if not module_name:
+            return Response({'error': 'module_name is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        last = HistorySnapshot.objects.filter(module_name=module_name).order_by('-saved_at').first()
+        if last and last.content_hash == content_hash:
+            return Response({'message': '内容未变化，跳过保存', 'skipped': True})
+
+        snapshot = HistorySnapshot.objects.create(
+            module_name=module_name,
+            content=content,
+            content_hash=content_hash,
+        )
+        serializer = self.get_serializer(snapshot)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'], url_path='save-all-snapshots')
+    def save_all_snapshots(self, request):
+        modules = TaskModule.objects.all()
+        saved_count = 0
+        skipped_count = 0
+
+        for mod in modules:
+            today_tasks = TaskItem.objects.filter(
+                module=mod, task_type='today'
+            ).order_by('order', '-created_at')
+
+            if not today_tasks.exists():
+                continue
+
+            lines = ['=== 今日任务 ===']
+            for idx, item in enumerate(today_tasks, 1):
+                line = f'{idx}. {item.content}'
+                if item.remarks:
+                    line += f'（{item.remarks}）'
+                if item.is_completed:
+                    line += ' [已完成]'
+                lines.append(line)
+
+            content = '\n'.join(lines)
+            content_hash = hash(content)
+
+            last = HistorySnapshot.objects.filter(module_name=mod.name).order_by('-saved_at').first()
+            if last and last.content_hash == content_hash:
+                skipped_count += 1
+                continue
+
+            HistorySnapshot.objects.create(
+                module_name=mod.name,
+                content=content,
+                content_hash=content_hash,
+            )
+            saved_count += 1
+
+        return Response({
+            'saved': saved_count,
+            'skipped': skipped_count,
+        })
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response({'message': '删除成功'}, status=status.HTTP_200_OK)

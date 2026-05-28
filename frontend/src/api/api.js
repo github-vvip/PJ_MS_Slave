@@ -77,4 +77,14 @@ export const getProjectFilterOptions = (params) => api.get('/projects/filter-opt
 
 export const batchImportProjects = (data) => api.post('/projects/batch-import/', data)
 
+/* ========== 历史快照 API ========== */
+
+export const getHistorySnapshots = (params) => api.get('/history-snapshots/', { params })
+
+export const saveHistorySnapshot = (data) => api.post('/history-snapshots/save-snapshot/', data)
+
+export const saveAllHistorySnapshots = () => api.post('/history-snapshots/save-all-snapshots/')
+
+export const deleteHistorySnapshot = (id) => api.delete(`/history-snapshots/${id}/`)
+
 export default api

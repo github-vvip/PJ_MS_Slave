@@ -191,7 +191,7 @@ watch(() => props.visible, (val) => {
       loadCustomerName()
     }
   }
-})
+}, { immediate: true })
 
 const handleClose = () => {
   emit('close')

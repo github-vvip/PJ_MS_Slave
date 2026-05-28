@@ -2,7 +2,7 @@
 DRF 序列化器
 """
 from rest_framework import serializers
-from .models import TaskModule, TaskItem, Customer, Project
+from .models import TaskModule, TaskItem, Customer, Project, HistorySnapshot
 
 
 class TaskItemSerializer(serializers.ModelSerializer):
@@ -61,3 +61,10 @@ class ProjectSerializer(serializers.ModelSerializer):
         if not value.strip():
             raise serializers.ValidationError('项目名称不能为空')
         return value
+
+
+class HistorySnapshotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HistorySnapshot
+        fields = ['id', 'module_name', 'content', 'saved_at', 'content_hash']
+        read_only_fields = ['saved_at']

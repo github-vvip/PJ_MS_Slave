@@ -7,7 +7,7 @@
       </div>
 
       <div v-if="!dbAvailable" class="history-fallback">
-        <p>浏览器不支持 IndexedDB，历史记录功能不可用</p>
+        <p>历史记录功能不可用，请检查服务器连接</p>
       </div>
 
       <div v-else class="history-workspace">
@@ -99,16 +99,9 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { getTaskModules, getTaskItems } from '../api/api.js'
-import {
-  saveRecord,
-  getRecordsByModule,
-  getLastRecordHash,
-  simpleHash,
-  isIndexedDBAvailable
-} from '../utils/historyDB.js'
+import { getTaskModules, getTaskItems, getHistorySnapshots, saveAllHistorySnapshots, deleteHistorySnapshot } from '../api/api.js'
 
-const dbAvailable = ref(isIndexedDBAvailable())
+const dbAvailable = ref(true)
 const isSaving = ref(false)
 const lastSaveTime = ref('')
 const moduleData = ref([])
@@ -117,7 +110,6 @@ const selectedDate = ref(null)
 const selectedModule = ref(null)
 let autoTimer = null
 let countdownTimer = null
-let calibrationTimer = null
 const countdownHours = ref(0)
 const countdownMinutes = ref(0)
 const countdownSeconds = ref(0)
@@ -146,31 +138,6 @@ function updateCountdown() {
   countdownHours.value = Math.floor(totalSec / 3600)
   countdownMinutes.value = Math.floor((totalSec % 3600) / 60)
   countdownSeconds.value = totalSec % 60
-  if (remaining <= 0) {
-    saveAllModules()
-    lastSaveTimestamp.value = Date.now()
-  }
-}
-
-function calibrateAndSchedule() {
-  const now = new Date()
-  const currentHour = now.getHours()
-  const currentMinute = now.getMinutes()
-  const currentSecond = now.getSeconds()
-  const currentMs = now.getMilliseconds()
-
-  if (SAVE_HOURS.includes(currentHour) && currentMinute === 0 && currentSecond === 0) {
-    saveAllModules()
-    lastSaveTimestamp.value = Date.now()
-  }
-
-  let msToNextMinute = (60 - currentSecond) * 1000 - currentMs
-  if (msToNextMinute <= 0) msToNextMinute = 60000
-
-  if (autoTimer) clearTimeout(autoTimer)
-  autoTimer = setTimeout(() => {
-    calibrateAndSchedule()
-  }, msToNextMinute)
 }
 
 const countdownDisplay = computed(() => {
@@ -182,12 +149,6 @@ const detailLines = computed(() => {
   if (!selectedRecord.value || !selectedRecord.value.content) return []
   return selectedRecord.value.content.split('\n')
 })
-
-function getPreview(content) {
-  if (!content) return ''
-  const flat = content.replace(/\n/g, ' ')
-  return flat.length > 50 ? flat.substring(0, 50) + '...' : flat
-}
 
 function formatTime(isoStr) {
   if (!isoStr) return ''
@@ -214,50 +175,15 @@ function selectDate(moduleName, dateGroup) {
   selectedRecord.value = dateGroup.latestRecord
 }
 
-function selectRecord(record) {
-  selectedRecord.value = record
-}
-
-async function fetchModuleTasks(moduleId) {
-  try {
-    const todayData = await getTaskItems({ module: moduleId, task_type: 'today' })
-    const todaySorted = todayData.sort((a, b) => a.order - b.order)
-
-    if (todaySorted.length === 0) return ''
-
-    let text = '=== 今日任务 ===\n'
-    todaySorted.forEach((item, idx) => {
-      let line = `${idx + 1}. ${item.content}`
-      if (item.remarks) line += `（${item.remarks}）`
-      if (item.is_completed) line += ' [已完成]'
-      text += line + '\n'
-    })
-    return text.trim()
-  } catch {
-    return ''
-  }
-}
-
 async function saveAllModules() {
   if (isSaving.value) return
   isSaving.value = true
   try {
-    const modules = await getTaskModules()
-    for (const mod of modules) {
-      const content = await fetchModuleTasks(mod.id)
-      if (!content) continue
-
-      const newHash = simpleHash(content)
-      const lastHash = await getLastRecordHash(mod.name)
-
-      if (lastHash !== null && lastHash === newHash) continue
-
-      await saveRecord(mod.name, content)
-    }
+    await saveAllHistorySnapshots()
     lastSaveTime.value = formatTime(new Date().toISOString())
     await loadAllRecords()
   } catch (e) {
-    console.error('自动保存失败:', e)
+    console.error('保存失败:', e)
   } finally {
     isSaving.value = false
   }
@@ -270,14 +196,20 @@ async function loadAllRecords() {
     const modules = await getTaskModules()
     const result = []
     for (const mod of modules) {
-      const records = await getRecordsByModule(mod.name)
+      const records = await getHistorySnapshots({ module_name: mod.name })
       const dateMap = new Map()
       for (const record of records) {
-        const dateKey = extractDateStr(record.savedAt)
+        const dateKey = extractDateStr(record.saved_at)
         if (!dateMap.has(dateKey)) {
           dateMap.set(dateKey, [])
         }
-        dateMap.get(dateKey).push(record)
+        dateMap.get(dateKey).push({
+          id: record.id,
+          moduleName: mod.name,
+          content: record.content,
+          savedAt: record.saved_at,
+          contentHash: record.content_hash,
+        })
       }
       const dates = []
       for (const [date, recs] of dateMap) {
@@ -297,22 +229,18 @@ async function loadAllRecords() {
     moduleData.value = result
   } catch (e) {
     console.error('加载历史记录失败:', e)
+    dbAvailable.value = false
   }
 }
 
 onMounted(async () => {
   await loadAllRecords()
   lastSaveTimestamp.value = Date.now()
-  updateCountdown()
   countdownTimer = setInterval(updateCountdown, 1000)
-  calibrateAndSchedule()
+  updateCountdown()
 })
 
 onUnmounted(() => {
-  if (autoTimer) {
-    clearTimeout(autoTimer)
-    autoTimer = null
-  }
   if (countdownTimer) {
     clearInterval(countdownTimer)
     countdownTimer = null

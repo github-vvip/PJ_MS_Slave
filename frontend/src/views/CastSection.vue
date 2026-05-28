@@ -3,8 +3,8 @@
     <div class="cast-inner">
       <div class="cast-header">
         <div class="cast-header-line"></div>
-        <h2 class="cast-title">演 员 介 绍</h2>
-        <p class="cast-subtitle">THE CAST</p>
+        <h2 class="cast-title">科 技 前 沿</h2>
+        <p class="cast-subtitle">TECH FRONTIERS</p>
         <div class="cast-header-line"></div>
       </div>
 
@@ -41,34 +41,34 @@ const paused = ref(false)
 
 const featured = [
   {
-    name: '林 晓 雯',
-    role: '首席舞者',
-    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=female%20ballet%20dancer%20portrait%20professional%20headshot%20dark%20background%20elegant%20pose%20dramatic%20lighting&image_size=portrait_4_3'
+    name: 'AI 芯片',
+    role: '半导体创新',
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=AI%20microchip%20close-up%20glowing%20neural%20network%20circuit%20blue%20and%20gold%20traces%20dark%20background%20futuristic%20semiconductor%20technology%20highly%20detailed&image_size=portrait_4_3'
   },
   {
-    name: '赵 明 轩',
-    role: '首席舞者',
-    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=male%20ballet%20dancer%20portrait%20professional%20headshot%20dark%20background%20strong%20pose%20dramatic%20lighting&image_size=portrait_4_3'
+    name: '量子计算',
+    role: '计算革命',
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=quantum%20computer%20processor%20dilution%20refrigerator%20golden%20chandelier%20cables%20dark%20lab%20blue%20glow%20cutting%20edge%20technology%20cinematic&image_size=portrait_4_3'
   },
   {
-    name: '苏 雨 晴',
-    role: '独舞演员',
-    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=female%20ballet%20dancer%20portrait%20graceful%20dark%20background%20soft%20lighting%20elegant&image_size=portrait_4_3'
+    name: '智能机器人',
+    role: '智造未来',
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=humanoid%20robot%20sleek%20white%20metallic%20body%20glowing%20blue%20eyes%20dark%20studio%20background%20advanced%20AI%20robotics%20dramatic%20lighting&image_size=portrait_4_3'
   },
   {
-    name: '陈 逸 飞',
-    role: '独舞演员',
-    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=male%20ballet%20dancer%20portrait%20confident%20dark%20background%20dramatic%20lighting%20strong&image_size=portrait_4_3'
+    name: '5G 通信',
+    role: '万物互联',
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=5G%20communication%20tower%20emitting%20holographic%20network%20waves%20connected%20devices%20smart%20city%20skyline%20dark%20blue%20background%20digital%20mesh%20futuristic&image_size=portrait_4_3'
   },
   {
-    name: '周 瑶',
-    role: '群舞领舞',
-    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=female%20ballet%20dancer%20portrait%20delicate%20dark%20background%20warm%20lighting%20beautiful&image_size=portrait_4_3'
+    name: '增强现实',
+    role: '虚实融合',
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=augmented%20reality%20headset%20holographic%20UI%20floating%20data%20visualizations%20hand%20gesture%20interaction%20dark%20environment%20cyan%20glow%20future%20tech&image_size=portrait_4_3'
   },
   {
-    name: '张 子 豪',
-    role: '群舞领舞',
-    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=male%20ballet%20dancer%20portrait%20powerful%20dark%20background%20spotlight%20intense&image_size=portrait_4_3'
+    name: '新能源科技',
+    role: '绿色未来',
+    image: 'https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=futuristic%20solid%20state%20battery%20glowing%20green%20energy%20core%20solar%20panel%20elements%20clean%20energy%20technology%20dark%20background%20emerald%20light%20innovation&image_size=portrait_4_3'
   }
 ]
 
