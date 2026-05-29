@@ -1039,13 +1039,15 @@ onBeforeUnmount(() => {
 }
 .page-header {
   margin-bottom: 20px;
+  text-align: center;
 }
 .page-title {
   margin: 0;
-  font-size: 24px;
-  font-weight: 700;
-  color: #0F172A;
-  letter-spacing: -0.02em;
+  font-family: 'Noto Serif SC', 'SimSun', 'STSong', serif;
+  font-size: 2.25rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  letter-spacing: 0.25em;
 }
 .filter-card {
   padding: 24px;

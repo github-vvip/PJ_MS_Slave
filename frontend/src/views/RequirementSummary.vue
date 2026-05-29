@@ -294,7 +294,7 @@ onMounted(async () => {
   margin: 0;
   font-size: 32px;
   font-weight: 700;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: 'Noto Serif SC', 'SimSun', 'STSong', serif;
   letter-spacing: 0.04em;
   background: linear-gradient(135deg, #7D9B6D 0%, #9CAF88 40%, #B5C9A8 80%, #9CAF88 100%);
   -webkit-background-clip: text;
