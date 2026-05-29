@@ -22,7 +22,7 @@
             <div class="roller-group">
               <div class="roller-digit">
                 <div class="roller-strip" :style="{ transform: `translateY(-${countdownHours * 40}px)` }">
-                  <span v-for="h in 10" :key="'h'+h" class="roller-num">{{ String(h - 1).padStart(2, '0') }}</span>
+                  <span v-for="h in 24" :key="'h'+h" class="roller-num">{{ String(h - 1).padStart(2, '0') }}</span>
                 </div>
               </div>
               <span class="roller-sep">:</span>
@@ -119,15 +119,18 @@ const SAVE_HOURS = [11, 23]
 
 function getNextSaveTime() {
   const now = new Date()
-  for (const h of SAVE_HOURS) {
-    const target = new Date(now)
-    target.setHours(h, 0, 0, 0)
-    if (target > now) return target.getTime()
-  }
-  const tomorrow = new Date(now)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  tomorrow.setHours(SAVE_HOURS[0], 0, 0, 0)
-  return tomorrow.getTime()
+  const y = now.getFullYear()
+  const m = now.getMonth()
+  const d = now.getDate()
+
+  const today11 = new Date(y, m, d, 11, 0, 0, 0).getTime()
+  const today23 = new Date(y, m, d, 23, 0, 0, 0).getTime()
+  const nowMs = now.getTime()
+
+  if (nowMs < today11) return today11
+  if (nowMs < today23) return today23
+
+  return new Date(y, m, d + 1, 11, 0, 0, 0).getTime()
 }
 
 function updateCountdown() {

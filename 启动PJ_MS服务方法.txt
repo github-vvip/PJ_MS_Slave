@@ -1,0 +1,24 @@
+## 正式环境启动方法
+### 第1步：构建前端
+
+cd E:\PJ_MS_Slave\frontend
+npm run build
+
+构建产物会自动输出到 E:\PJ_MS_Slave\backend\dist\ 目录
+
+第2步：启动后端服务
+
+cd E:\PJ_MS_Slave\backend
+python manage.py runserver 0.0.0.0:8000
+
+- 0.0.0.0 表示允许局域网访问（如果只本机访问可以用 127.0.0.1 ）
+- 8000 为正式环境端口号
+
+第3步：访问
+本机：http://localhost:8000
+局域网：http://你的IP地址:8000
+
+注意事项
+- 每次前端代码有改动后 ，需要重新执行第1步 npm run build ，然后刷新浏览器即可
+- 后端代码有改动后 ，Django 会自动重载，无需手动重启
+- 如果前端构建后页面没更新，按 Ctrl + Shift + R 强制刷新浏览器缓存

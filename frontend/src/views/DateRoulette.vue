@@ -73,14 +73,6 @@
 <script setup>
 import { ref, computed } from 'vue'
 
-const currentYear = ref(2026)
-const currentMonth = ref(4)
-const selectedDate = ref('2026-05-22')
-const trackRef = ref(null)
-const isDragging = ref(false)
-let dragStartX = 0
-let scrollStart = 0
-
 const VISIBLE_DAYS = 15
 
 function formatDateStr(date) {
@@ -89,6 +81,15 @@ function formatDateStr(date) {
   const d = String(date.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
 }
+
+const now = new Date()
+const currentYear = ref(now.getFullYear())
+const currentMonth = ref(now.getMonth())
+const selectedDate = ref(formatDateStr(now))
+const trackRef = ref(null)
+const isDragging = ref(false)
+let dragStartX = 0
+let scrollStart = 0
 
 const monthLabel = computed(() => {
   return `${currentYear.value}.${String(currentMonth.value + 1).padStart(2, '0')}`

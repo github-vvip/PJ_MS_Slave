@@ -60,8 +60,6 @@
     <AboutSection />
     <DateRoulette />
     <ConcertSection />
-    <NewsSection />
-    <CastSection />
 
     <el-dialog v-model="showAddModule" title="新增任务模块" width="400px" @close="newModuleName = ''">
       <el-form @submit.prevent="handleAddModule">
@@ -99,8 +97,6 @@ import HeroBanner from './HeroBanner.vue'
 import AboutSection from './AboutSection.vue'
 import DateRoulette from './DateRoulette.vue'
 import ConcertSection from './ConcertSection.vue'
-import NewsSection from './NewsSection.vue'
-import CastSection from './CastSection.vue'
 import {
   getTaskModules,
   createTaskModule,
