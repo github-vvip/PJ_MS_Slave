@@ -77,6 +77,10 @@ export const getProjectFilterOptions = (params) => api.get('/projects/filter-opt
 
 export const batchImportProjects = (data) => api.post('/projects/batch-import/', data)
 
+/* ========== 配置雷达 API ========== */
+
+export const searchProjects = () => api.post('/search/')
+
 /* ========== 历史快照 API ========== */
 
 export const getHistorySnapshots = (params) => api.get('/history-snapshots/', { params })

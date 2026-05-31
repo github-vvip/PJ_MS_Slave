@@ -295,6 +295,54 @@
       <div class="context-menu-item" @click="handleEditCustomerFromMenu">重命名</div>
       <div class="context-menu-item danger" @click="handleDeleteCustomer">删除</div>
     </div>
+
+    <section class="concert-section">
+      <div class="concert-header">
+        <h2 class="concert-title">配置雷达</h2>
+        <p class="concert-subtitle">CONFIGURATION RADAR</p>
+      </div>
+
+      <!-- 检索按钮 -->
+      <div class="concert-search-bar">
+        <button class="concert-search-btn" :class="{ 'is-loading': radarLoading }" @click="handleRadarSearch" :disabled="radarLoading">
+          <el-icon v-if="!radarLoading" class="concert-search-icon" size="16"><Search /></el-icon>
+          <span v-if="radarLoading" class="concert-spinner"></span>
+          <span>{{ radarLoading ? '检索中...' : '检 索' }}</span>
+        </button>
+      </div>
+
+      <!-- 结果表格 -->
+      <div v-if="radarResults.length > 0" class="concert-results">
+        <el-table :data="radarResults" border stripe style="width: 100%" max-height="600" @sort-change="handleRadarSort">
+          <el-table-column prop="客户" label="客户" sortable="custom" width="120" show-overflow-tooltip />
+          <el-table-column prop="厂商" label="厂商" sortable="custom" width="120" show-overflow-tooltip />
+          <el-table-column prop="项目名称" label="项目名称" sortable="custom" min-width="200" show-overflow-tooltip />
+          <el-table-column prop="硬件版型" label="硬件版型" sortable="custom" width="120" />
+          <el-table-column prop="Android版本" label="Android版本" sortable="custom" width="130" />
+          <el-table-column prop="Launcher" label="Launcher" sortable="custom" width="100" />
+          <el-table-column prop="配置表路径" label="配置表路径" min-width="320" show-overflow-tooltip>
+            <template #default="{ row }">
+              <el-tooltip :content="row.配置表路径" placement="top">
+                <el-link type="primary" :underline="false" style="cursor: pointer" @click="copyRadarPath(row.配置表路径)">
+                  {{ row.配置表路径 }}
+                </el-link>
+              </el-tooltip>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div class="concert-result-count">共 {{ radarResults.length }} 条记录</div>
+      </div>
+
+      <!-- 无结果提示 -->
+      <div v-else-if="radarDone && !radarLoading" class="concert-empty">
+        <el-empty description="未检索到匹配的项目配置" />
+      </div>
+
+      <!-- 错误提示 -->
+      <div v-if="radarError" class="concert-error">
+        <el-alert :title="radarError" type="error" show-icon :closable="false" />
+      </div>
+    </section>
   </div>
 </template>
 
@@ -304,7 +352,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Download, Upload, Search, Setting, Check, RefreshLeft } from '@element-plus/icons-vue'
 import {
   getCustomers, createCustomer, updateCustomer, deleteCustomer,
-  getProjects, deleteProject, getProjectFilterOptions, batchImportProjects
+  getProjects, deleteProject, getProjectFilterOptions, batchImportProjects,
+  searchProjects
 } from '../api/api.js'
 import ProjectForm from './ProjectForm.vue'
 import ProjectDetail from './ProjectDetail.vue'
@@ -1027,6 +1076,53 @@ onMounted(async () => {
   })
 })
 
+/* ===== 配置雷达 - 检索 ===== */
+const radarLoading = ref(false)
+const radarDone = ref(false)
+const radarResults = ref([])
+const radarError = ref('')
+
+const handleRadarSearch = async () => {
+  radarLoading.value = true
+  radarDone.value = false
+  radarError.value = ''
+  radarResults.value = []
+  try {
+    const res = await searchProjects()
+    if (res.code === 200) {
+      radarResults.value = res.data
+    } else {
+      radarError.value = res.message || '检索失败'
+    }
+  } catch (err) {
+    radarError.value = '检索请求失败，请检查后端服务是否正常'
+    console.error('配置雷达检索失败:', err)
+  } finally {
+    radarLoading.value = false
+    radarDone.value = true
+  }
+}
+
+const handleRadarSort = ({ prop, order }) => {
+  if (!prop || !order) return
+  const sorted = [...radarResults.value]
+  sorted.sort((a, b) => {
+    const va = a[prop] || ''
+    const vb = b[prop] || ''
+    const cmp = va.localeCompare(vb, 'zh-CN')
+    return order === 'ascending' ? cmp : -cmp
+  })
+  radarResults.value = sorted
+}
+
+const copyRadarPath = (path) => {
+  navigator.clipboard.writeText(path).then(() => {
+    ElMessage.success('路径已复制')
+  }).catch(() => {
+    ElMessage.warning('请手动复制路径')
+  })
+}
+
 onBeforeUnmount(() => {
   document.removeEventListener('click', hideContextMenu)
 })
@@ -1560,5 +1656,109 @@ onBeforeUnmount(() => {
   height: 16px;
   line-height: 16px;
   padding: 0 4px;
+}
+
+/* ===== 配置雷达模块 ===== */
+.concert-section {
+  margin-top: 48px;
+  padding: 32px 24px 48px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #f0f0f0;
+}
+.concert-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+.concert-title {
+  margin: 0 0 8px 0;
+  font-family: 'Noto Serif SC', 'SimSun', 'STSong', serif;
+  font-size: 2.25rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  letter-spacing: 0.25em;
+}
+.concert-subtitle {
+  margin: 0;
+  font-family: 'Noto Sans SC', -apple-system, sans-serif;
+  font-size: 13px;
+  font-weight: 300;
+  color: #C9A96E;
+  letter-spacing: 0.35em;
+}
+
+/* ===== 配置雷达 - 检索区域 ===== */
+.concert-search-bar {
+  text-align: center;
+  margin-bottom: 24px;
+}
+.concert-search-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 36px;
+  background: #C9A96E;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 2px;
+  min-width: 140px;
+}
+.concert-search-btn:hover {
+  background: #B8944F;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(201, 169, 110, 0.4);
+}
+.concert-search-btn:active {
+  transform: translateY(0);
+}
+.concert-search-btn.is-loading {
+  opacity: 0.85;
+  pointer-events: none;
+}
+.concert-search-btn:disabled {
+  opacity: 0.85;
+  cursor: not-allowed;
+}
+.concert-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #FFFFFF;
+  border-radius: 50%;
+  animation: concert-spin 0.6s linear infinite;
+}
+@keyframes concert-spin {
+  to { transform: rotate(360deg); }
+}
+.concert-results {
+  margin-top: 24px;
+}
+.concert-results :deep(.el-table th.el-table__cell) {
+  background-color: #fafafa;
+  color: #1a1a1a;
+  font-weight: 600;
+}
+.concert-results :deep(.el-table th.el-table__cell > .cell) {
+  letter-spacing: 0.04em;
+}
+.concert-result-count {
+  text-align: right;
+  font-size: 13px;
+  color: #999;
+  margin-top: 12px;
+  padding-right: 8px;
+}
+.concert-empty {
+  margin-top: 32px;
+}
+.concert-error {
+  margin-top: 16px;
 }
 </style>

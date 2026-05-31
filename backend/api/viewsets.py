@@ -1,8 +1,10 @@
 """
 DRF 视图集
 """
+import os
+import re
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 from django.db.models import Max, Q
 from .models import TaskModule, TaskItem, Customer, Project, HistorySnapshot
@@ -351,3 +353,278 @@ class HistorySnapshotViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         self.perform_destroy(instance)
         return Response({'message': '删除成功'}, status=status.HTTP_200_OK)
+
+
+# ============================================================
+# 配置雷达 — 网络路径检索
+# ============================================================
+
+# Android版本映射（二级文件夹名 → 版本号）
+ANDROID_VERSION_MAP = {
+    'rk_m': '6',
+    'rk_r': '11',
+    'rk_s': '12',
+    'rk_t': '13',
+    'rk_u': '14',
+    'rk_v': '15',
+}
+
+# Launcher 推导规则（项目名称关键词 → Launcher 值）
+LAUNCHER_RULES = [
+    ('photo', 'WP'),
+    ('frame', 'FM'),
+    ('whaleframely', 'WF'),
+    ('fcalendar', 'FC'),
+]
+
+DEFAULT_LAUNCHER = 'OM'
+
+# 客户名称中需要剔除的关键词
+EXCLUDED_KEYWORDS = ['智象', '日历']
+
+
+@api_view(['POST'])
+def search_projects(request):
+    """
+    检索网络路径中的项目配置信息
+    POST /api/search/
+    遍历 \\\\192.168.2.18\\work\\需求 文件夹层级，解析配置字段
+    """
+    root_path = r'\\192.168.2.18\work\需求'
+
+    # 检查根路径是否可访问
+    if not os.path.isdir(root_path):
+        return Response({
+            'code': 500,
+            'message': f'网络路径不可访问: {root_path}',
+            'data': []
+        })
+
+    results = []
+
+    # ---- 遍历二级文件夹：解析 Android 版本 ----
+    try:
+        level2_dirs = [d for d in os.listdir(root_path)
+                       if os.path.isdir(os.path.join(root_path, d))]
+    except PermissionError:
+        return Response({'code': 500, 'message': '无权限访问网络路径', 'data': []})
+
+    for l2_dir in sorted(level2_dirs):
+        android_version = _get_android_version(l2_dir)
+        l2_path = os.path.join(root_path, l2_dir)
+
+        # ---- 遍历三级文件夹：解析硬件版型 ----
+        try:
+            level3_dirs = [d for d in os.listdir(l2_path)
+                           if os.path.isdir(os.path.join(l2_path, d))]
+        except PermissionError:
+            continue
+
+        for l3_dir in sorted(level3_dirs):
+            hardware_version = l3_dir  # 文件夹名即为硬件版型
+            l3_path = os.path.join(l2_path, l3_dir)
+
+            # ---- 遍历四级文件夹：解析客户/厂商/项目名称 ----
+            try:
+                level4_dirs = [d for d in os.listdir(l3_path)
+                               if os.path.isdir(os.path.join(l3_path, d))]
+            except PermissionError:
+                continue
+
+            for l4_dir in sorted(level4_dirs):
+                customer, vendor, project_name_l4 = _parse_level4(l4_dir)
+                l4_path = os.path.join(l3_path, l4_dir)
+                project_name = project_name_l4
+
+                # 读取五级文件夹
+                level5_dirs = []
+                try:
+                    level5_dirs = [d for d in os.listdir(l4_path)
+                                   if os.path.isdir(os.path.join(l4_path, d))]
+                except PermissionError:
+                    pass
+
+                excel_path = None
+
+                # 如果四级文件夹不是纯汉字名称，配置表可能在四级文件夹内
+                if not re.fullmatch(r'[一-鿿]+', l4_dir):
+                    excel_path = _find_excel_file(l4_path)
+
+                if not excel_path:
+                    if not project_name:
+                        # 四级只有客户名，到五级文件夹找项目名称
+                        project_name, excel_path = _search_project_in_level5(
+                            level5_dirs, l4_path
+                        )
+                        # 五级未找到 Excel，尝试六级
+                        if not excel_path:
+                            excel_path = _search_excel_in_level6(
+                                level5_dirs, l4_path
+                            )
+                    else:
+                        # 四级已有客户+项目名，到五级找 Excel
+                        excel_path = _search_excel_in_level5(level5_dirs, l4_path)
+                        # 五级未找到，尝试六级
+                        if not excel_path:
+                            excel_path = _search_excel_in_level6(
+                                level5_dirs, l4_path
+                            )
+
+                # 推导 Launcher
+                launcher = _derive_launcher(project_name or '')
+
+                # 只有同时有客户和项目名称才加入结果，"新需求"不作为客户
+                if customer and project_name and customer != '新需求':
+                    results.append({
+                        '客户': customer,
+                        '厂商': vendor,
+                        '项目名称': project_name,
+                        '硬件版型': hardware_version,
+                        'Android版本': android_version,
+                        'Launcher': launcher,
+                        '配置表路径': excel_path or '',
+                    })
+
+    return Response({
+        'code': 200,
+        'message': 'success',
+        'data': results,
+    })
+
+
+def _get_android_version(folder_name):
+    """根据二级文件夹名映射 Android 版本"""
+    name_lower = folder_name.lower()
+    if 'linux' in name_lower or 'debian' in name_lower:
+        return 'Debian11'
+    for key, version in ANDROID_VERSION_MAP.items():
+        if key in name_lower:
+            return version
+    return folder_name  # 无法匹配则返回原名称
+
+
+def _parse_level4(folder_name):
+    """
+    解析四级文件夹名
+    返回: (customer, vendor, project_name)
+    - 纯汉字 → 客户=汉字，无项目名称
+    - 汉字混合其它 → 有"-"时取第一个"-"左边的汉字作为客户(剔除"智象""日历")
+    - 客户 == 厂商
+    """
+    # 情况1：纯汉字（无项目名称）
+    if re.fullmatch(r'[一-鿿]+', folder_name):
+        return folder_name.strip('-'), folder_name.strip('-'), None
+
+    # 情况2：汉字混合其它字符
+    if '-' in folder_name:
+        # 有"-"时，只取第一个"-"左边的部分提取汉字作为客户
+        left_part = folder_name.split('-')[0]
+        chinese_chars = re.findall(r'[一-鿿]+', left_part)
+    else:
+        # 无"-"时，从整个文件夹名提取汉字
+        chinese_chars = re.findall(r'[一-鿿]+', folder_name)
+    customer = ''.join(chinese_chars)
+
+    # 剔除"智象"、"日历"关键词
+    for kw in EXCLUDED_KEYWORDS:
+        customer = customer.replace(kw, '')
+
+    if not customer:
+        # 无汉字，整个文件夹名即为厂商和客户
+        return folder_name.strip('-'), folder_name.strip('-'), None
+
+    # 项目名称 = 剔除汉字部分，并去掉两侧的 "-"
+    project_name = re.sub(r'[一-鿿]+', '', folder_name).strip('-')
+
+    vendor = customer
+    customer = customer.strip('-')
+
+    return customer, vendor, project_name if project_name else None
+
+
+def _parse_level5_project_name(folder_name):
+    """
+    解析五级文件夹名为项目名称
+    - 无汉字 → 整个文件夹名即为项目名称
+    - 汉字混合其它 → 剔除汉字后为项目名称
+    """
+    has_chinese = bool(re.search(r'[一-鿿]', folder_name))
+    if not has_chinese:
+        return folder_name.strip('-')
+    # 剔除汉字，保留剩余部分
+    project_name = re.sub(r'[一-鿿]+', '', folder_name).strip('-')
+    return project_name if project_name else None
+
+
+def _find_excel_file(directory):
+    """
+    在目录中查找订单软硬件配置表 Excel 文件
+    匹配规则：文件名包含"订单"/"软硬"/"硬件"/"配置"/"表" 任一关键词 + .xlsx/.xls
+    多个匹配时取文件名最长的
+    """
+    if not os.path.isdir(directory):
+        return None
+    matched_files = []
+    try:
+        for f in os.listdir(directory):
+            if not (f.endswith('.xlsx') or f.endswith('.xls')):
+                continue
+            name = os.path.splitext(f)[0]
+            keywords = ['订单', '软硬', '硬件', '配置', '表']
+            if any(kw in name for kw in keywords):
+                matched_files.append(f)
+    except PermissionError:
+        pass
+    if not matched_files:
+        return None
+    # 选文件名最长的
+    best = max(matched_files, key=lambda f: len(os.path.splitext(f)[0]))
+    return os.path.join(directory, best)
+
+
+def _derive_launcher(project_name):
+    """根据项目名称推导 Launcher 类型（不区分大小写匹配）"""
+    name_lower = project_name.lower()
+    for keyword, launcher in LAUNCHER_RULES:
+        if keyword in name_lower:
+            return launcher
+    return DEFAULT_LAUNCHER
+
+
+def _search_project_in_level5(level5_dirs, l4_path):
+    """在五级文件夹中查找项目名称和 Excel 文件"""
+    for l5_dir in sorted(level5_dirs):
+        l5_project = _parse_level5_project_name(l5_dir)
+        if l5_project:
+            l5_path = os.path.join(l4_path, l5_dir)
+            excel_path = _find_excel_file(l5_path)
+            if excel_path:
+                return l5_project, excel_path
+    return None, None
+
+
+def _search_excel_in_level5(level5_dirs, l4_path):
+    """在五级文件夹中查找 Excel 文件"""
+    for l5_dir in sorted(level5_dirs):
+        l5_path = os.path.join(l4_path, l5_dir)
+        excel_path = _find_excel_file(l5_path)
+        if excel_path:
+            return excel_path
+    return None
+
+
+def _search_excel_in_level6(level5_dirs, l4_path):
+    """在六级文件夹中查找 Excel 文件"""
+    for l5_dir in sorted(level5_dirs):
+        l5_path = os.path.join(l4_path, l5_dir)
+        try:
+            level6_dirs = [d for d in os.listdir(l5_path)
+                           if os.path.isdir(os.path.join(l5_path, d))]
+        except PermissionError:
+            continue
+        for l6_dir in sorted(level6_dirs):
+            l6_path = os.path.join(l5_path, l6_dir)
+            excel_path = _find_excel_file(l6_path)
+            if excel_path:
+                return excel_path
+    return None
