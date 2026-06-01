@@ -570,7 +570,7 @@ def _find_excel_file(directory):
             if not (f.endswith('.xlsx') or f.endswith('.xls')):
                 continue
             name = os.path.splitext(f)[0]
-            keywords = ['订单', '软硬', '硬件', '配置', '表']
+            keywords = ['订单', '软硬', '硬件', '配置', '表', '需求', '软件']
             if any(kw in name for kw in keywords):
                 matched_files.append(f)
     except PermissionError:

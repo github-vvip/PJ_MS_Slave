@@ -343,6 +343,13 @@
         <el-alert :title="radarError" type="error" show-icon :closable="false" />
       </div>
     </section>
+
+    <section class="concert-section">
+      <div class="concert-header">
+        <h2 class="concert-title">数 据 同 步</h2>
+        <p class="concert-subtitle">DATA SYNCHRONIZATION</p>
+      </div>
+    </section>
   </div>
 </template>
 
