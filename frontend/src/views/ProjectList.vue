@@ -298,7 +298,7 @@
 
     <section class="concert-section">
       <div class="concert-header">
-        <h2 class="concert-title">配置雷达</h2>
+        <h2 class="concert-title">配 置 雷 达</h2>
         <p class="concert-subtitle">CONFIGURATION RADAR</p>
       </div>
 
@@ -349,6 +349,72 @@
         <h2 class="concert-title">数 据 同 步</h2>
         <p class="concert-subtitle">DATA SYNCHRONIZATION</p>
       </div>
+
+      <!-- 同步区域：按钮 + 日志窗口 -->
+      <div class="sync-layout">
+        <!-- 左侧：一键同步按钮 -->
+        <div class="sync-btn-wrapper">
+          <button class="sync-btn" :class="{ 'is-loading': syncing }" @click="handleSync" :disabled="syncing">
+            <span v-if="syncing" class="sync-spinner"></span>
+            <el-icon v-else size="20"><Upload /></el-icon>
+            <span>{{ syncing ? '同步中...' : '一键同步' }}</span>
+          </button>
+        </div>
+
+        <!-- 右侧：日志窗口 -->
+        <div class="sync-log-window" ref="logWindowRef">
+          <div v-if="syncLogs.length === 0 && !syncing" class="sync-log-placeholder">
+            点击「一键同步」开始同步数据
+          </div>
+          <div
+            v-for="(log, idx) in syncLogs"
+            :key="idx"
+            class="sync-log-item"
+            :class="'sync-log-' + log.status"
+          >
+            <span class="sync-log-icon">
+              <template v-if="log.status === 'info'">🔵</template>
+              <template v-else-if="log.status === 'success'">🟢</template>
+              <template v-else-if="log.status === 'skipped'">🟡</template>
+              <template v-else-if="log.status === 'failed'">🔴</template>
+            </span>
+            <span class="sync-log-text">{{ log.message }}</span>
+          </div>
+
+          <!-- 汇总报告 -->
+          <div v-if="syncSummary" class="sync-summary">
+            <div class="sync-summary-divider">━━━━━ 同步报告 ━━━━━</div>
+            <div class="sync-summary-item">📊 共检索到：{{ syncSummary.totalProjects }} 个项目</div>
+            <div class="sync-summary-item">📋 含需求表：{{ syncSummary.withRequirementTable }} 个项目</div>
+            <div class="sync-summary-item">✅ 成功同步：{{ syncSummary.syncedSuccessfully }} 个
+              <span v-if="syncSummary.syncedSuccessfullyDetails" class="sync-summary-sub">
+                <span v-for="(count, customer) in syncSummary.syncedSuccessfullyDetails" :key="customer">
+                  · {{ customer }}：{{ count }}
+                </span>
+              </span>
+            </div>
+            <div class="sync-summary-item">⏭️ 跳过同步：{{ syncSummary.skipped }} 个
+              <span v-if="syncSummary.skipDetails" class="sync-summary-sub">
+                <span v-for="(count, reason) in syncSummary.skipDetails" :key="reason">
+                  · {{ reason }}：{{ count }}
+                </span>
+              </span>
+            </div>
+            <div class="sync-summary-item">❌ 导入失败：{{ syncSummary.failedToImport }} 个
+              <span v-if="syncSummary.failDetails" class="sync-summary-sub">
+                <span v-for="(count, reason) in syncSummary.failDetails" :key="reason">
+                  · {{ reason }}：{{ count }}
+                </span>
+              </span>
+            </div>
+          </div>
+
+          <!-- 错误提示 -->
+          <div v-if="syncError" class="sync-error-bar">
+            {{ syncError }}
+          </div>
+        </div>
+      </div>
     </section>
   </div>
 </template>
@@ -360,7 +426,7 @@ import { Plus, Download, Upload, Search, Setting, Check, RefreshLeft } from '@el
 import {
   getCustomers, createCustomer, updateCustomer, deleteCustomer,
   getProjects, deleteProject, getProjectFilterOptions, batchImportProjects,
-  searchProjects
+  searchProjects, executeDataSync
 } from '../api/api.js'
 import ProjectForm from './ProjectForm.vue'
 import ProjectDetail from './ProjectDetail.vue'
@@ -1130,6 +1196,58 @@ const copyRadarPath = (path) => {
   })
 }
 
+/* ===== 数据同步 ===== */
+const syncing = ref(false)
+const syncLogs = ref([])
+const syncSummary = ref(null)
+const syncError = ref('')
+const logWindowRef = ref(null)
+
+const handleSync = async () => {
+  syncing.value = true
+  syncLogs.value = []
+  syncSummary.value = null
+  syncError.value = ''
+
+  executeDataSync(
+    // onLog: 实时日志
+    (data) => {
+      let message = ''
+      const status = data.status
+      if (data.status === 'success') {
+        message = `[${data.projectName}] 同步成功`
+      } else if (data.status === 'skipped') {
+        message = `[${data.projectName}] 跳过同步 - ${data.reason}`
+      } else if (data.status === 'failed') {
+        message = `[${data.projectName}] 导入失败 - ${data.reason}`
+      } else {
+        message = `[${data.projectName}] 检索完成`
+      }
+      syncLogs.value.push({ message, status, projectName: data.projectName })
+      nextTick(() => {
+        if (logWindowRef.value) {
+          logWindowRef.value.scrollTop = logWindowRef.value.scrollHeight
+        }
+      })
+    },
+    // onComplete: 汇总报告
+    (data) => {
+      syncSummary.value = data
+      syncing.value = false
+      nextTick(() => {
+        if (logWindowRef.value) {
+          logWindowRef.value.scrollTop = logWindowRef.value.scrollHeight
+        }
+      })
+    },
+    // onError: 请求失败
+    (msg) => {
+      syncError.value = msg
+      syncing.value = false
+    }
+  )
+}
+
 onBeforeUnmount(() => {
   document.removeEventListener('click', hideContextMenu)
 })
@@ -1767,5 +1885,147 @@ onBeforeUnmount(() => {
 }
 .concert-error {
   margin-top: 16px;
+}
+
+/* ===== 数据同步模块 ===== */
+.sync-layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+.sync-btn-wrapper {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+.sync-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100px;
+  height: 100px;
+  background: #C9A96E;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 1px;
+}
+.sync-btn:hover {
+  background: #B8944F;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(201, 169, 110, 0.4);
+}
+.sync-btn:active {
+  transform: translateY(0);
+}
+.sync-btn.is-loading {
+  opacity: 0.85;
+  pointer-events: none;
+}
+.sync-btn:disabled {
+  opacity: 0.85;
+  cursor: not-allowed;
+}
+.sync-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #FFFFFF;
+  border-radius: 50%;
+  animation: sync-spin 0.6s linear infinite;
+}
+@keyframes sync-spin {
+  to { transform: rotate(360deg); }
+}
+.sync-log-window {
+  flex: 1;
+  min-height: 200px;
+  max-height: 400px;
+  overflow-y: auto;
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  padding: 16px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.sync-log-placeholder {
+  color: #ccc;
+  text-align: center;
+  padding: 60px 0;
+  font-size: 14px;
+}
+.sync-log-item {
+  padding: 4px 0;
+  animation: sync-fadeInDown 0.3s ease;
+}
+.sync-log-icon {
+  margin-right: 6px;
+}
+.sync-log-text {
+  color: #333;
+}
+.sync-log-success .sync-log-text {
+  color: #52c41a;
+}
+.sync-log-failed .sync-log-text {
+  color: #ff4d4f;
+}
+.sync-log-skipped .sync-log-text {
+  color: #d4a017;
+}
+.sync-log-info .sync-log-text {
+  color: #1890ff;
+}
+.sync-summary {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px dashed #ddd;
+}
+.sync-summary-divider {
+  text-align: center;
+  color: #C9A96E;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  margin-bottom: 8px;
+}
+.sync-summary-item {
+  font-size: 13px;
+  color: #333;
+  line-height: 2;
+}
+.sync-summary-sub {
+  display: block;
+  font-size: 12px;
+  color: #888;
+  padding-left: 16px;
+  line-height: 1.8;
+}
+.sync-error-bar {
+  color: #ff4d4f;
+  padding: 8px;
+  margin-top: 8px;
+  background: #fff2f0;
+  border-radius: 4px;
+  font-size: 13px;
+}
+@keyframes sync-fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

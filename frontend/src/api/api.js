@@ -91,4 +91,51 @@ export const saveAllHistorySnapshots = () => api.post('/history-snapshots/save-a
 
 export const deleteHistorySnapshot = (id) => api.delete(`/history-snapshots/${id}/`)
 
+/* ========== 数据同步 API ========== */
+
+export const executeDataSync = (onLog, onComplete, onError) => {
+  fetch('/api/data-sync/execute/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  }).then(async (response) => {
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      let currentEvent = ''
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          currentEvent = line.slice(7).trim()
+        } else if (line.startsWith('data: ')) {
+          const dataStr = line.slice(6)
+          try {
+            const data = JSON.parse(dataStr)
+            if (currentEvent === 'log') {
+              onLog(data)
+            } else if (currentEvent === 'complete') {
+              onComplete(data)
+            }
+          } catch (e) {
+            // JSON 解析失败则忽略
+          }
+        }
+      }
+    }
+  }).catch((err) => {
+    onError(err.message || '同步请求失败')
+  })
+}
+
 export default api

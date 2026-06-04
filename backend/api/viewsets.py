@@ -3,12 +3,17 @@ DRF 视图集
 """
 import os
 import re
+import json
+from django.http import StreamingHttpResponse
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 from django.db.models import Max, Q
 from .models import TaskModule, TaskItem, Customer, Project, HistorySnapshot
 from .serializers import TaskModuleSerializer, TaskItemSerializer, CustomerSerializer, ProjectSerializer, HistorySnapshotSerializer
+from .excel_parser import parse_excel_config
+
+from datetime import datetime
 
 
 class TaskModuleViewSet(viewsets.ModelViewSet):
@@ -362,6 +367,7 @@ class HistorySnapshotViewSet(viewsets.ModelViewSet):
 # Android版本映射（二级文件夹名 → 版本号）
 ANDROID_VERSION_MAP = {
     'rk_m': '6',
+    'rk_o': '8.1',
     'rk_r': '11',
     'rk_s': '12',
     'rk_t': '13',
@@ -383,31 +389,30 @@ DEFAULT_LAUNCHER = 'OM'
 EXCLUDED_KEYWORDS = ['智象', '日历']
 
 
-@api_view(['POST'])
-def search_projects(request):
+def _search_projects_internal():
     """
-    检索网络路径中的项目配置信息
-    POST /api/search/
-    遍历 \\\\192.168.2.18\\work\\需求 文件夹层级，解析配置字段
+    核心检索逻辑：遍历网络路径，返回项目列表（纯数据，无HTTP依赖）
+    供 search_projects API 和 data_sync_execute SSE 共用
     """
     root_path = r'\\192.168.2.18\work\需求'
 
-    # 检查根路径是否可访问
     if not os.path.isdir(root_path):
-        return Response({
-            'code': 500,
-            'message': f'网络路径不可访问: {root_path}',
-            'data': []
-        })
+        return []
 
     results = []
 
     # ---- 遍历二级文件夹：解析 Android 版本 ----
     try:
-        level2_dirs = [d for d in os.listdir(root_path)
-                       if os.path.isdir(os.path.join(root_path, d))]
-    except PermissionError:
-        return Response({'code': 500, 'message': '无权限访问网络路径', 'data': []})
+        root_entries = os.listdir(root_path)
+    except OSError:
+        return []
+    level2_dirs = []
+    for d in root_entries:
+        try:
+            if os.path.isdir(os.path.join(root_path, d)):
+                level2_dirs.append(d)
+        except OSError:
+            continue
 
     for l2_dir in sorted(level2_dirs):
         android_version = _get_android_version(l2_dir)
@@ -415,10 +420,16 @@ def search_projects(request):
 
         # ---- 遍历三级文件夹：解析硬件版型 ----
         try:
-            level3_dirs = [d for d in os.listdir(l2_path)
-                           if os.path.isdir(os.path.join(l2_path, d))]
-        except PermissionError:
+            l2_entries = os.listdir(l2_path)
+        except OSError:
             continue
+        level3_dirs = []
+        for d in l2_entries:
+            try:
+                if os.path.isdir(os.path.join(l2_path, d)):
+                    level3_dirs.append(d)
+            except OSError:
+                continue
 
         for l3_dir in sorted(level3_dirs):
             hardware_version = l3_dir  # 文件夹名即为硬件版型
@@ -426,10 +437,16 @@ def search_projects(request):
 
             # ---- 遍历四级文件夹：解析客户/厂商/项目名称 ----
             try:
-                level4_dirs = [d for d in os.listdir(l3_path)
-                               if os.path.isdir(os.path.join(l3_path, d))]
-            except PermissionError:
+                l3_entries = os.listdir(l3_path)
+            except OSError:
                 continue
+            level4_dirs = []
+            for d in l3_entries:
+                try:
+                    if os.path.isdir(os.path.join(l3_path, d)):
+                        level4_dirs.append(d)
+                except OSError:
+                    continue
 
             for l4_dir in sorted(level4_dirs):
                 customer, vendor, project_name_l4 = _parse_level4(l4_dir)
@@ -439,10 +456,15 @@ def search_projects(request):
                 # 读取五级文件夹
                 level5_dirs = []
                 try:
-                    level5_dirs = [d for d in os.listdir(l4_path)
-                                   if os.path.isdir(os.path.join(l4_path, d))]
-                except PermissionError:
-                    pass
+                    entries = os.listdir(l4_path)
+                except OSError:
+                    entries = []
+                for d in entries:
+                    try:
+                        if os.path.isdir(os.path.join(l4_path, d)):
+                            level5_dirs.append(d)
+                    except OSError:
+                        continue
 
                 excel_path = None
 
@@ -485,11 +507,170 @@ def search_projects(request):
                         '配置表路径': excel_path or '',
                     })
 
-    return Response({
-        'code': 200,
-        'message': 'success',
-        'data': results,
-    })
+    return results
+
+
+@api_view(['POST'])
+def search_projects(request):
+    """配置雷达检索接口"""
+    data = _search_projects_internal()
+    if not data and not os.path.isdir(r'\\192.168.2.18\work\需求'):
+        return Response({'code': 500, 'message': '网络路径不可访问', 'data': []})
+    return Response({'code': 200, 'message': 'success', 'data': data})
+
+
+@api_view(['POST'])
+def data_sync_execute(request):
+    """
+    数据同步接口（SSE 实时推送）
+    POST /api/data-sync/execute/
+    1. 调用配置雷达搜索获取项目列表（纯后端，不影响前端）
+    2. 跳过检查：客户不存在 / 项目已存在
+    3. 有配置表路径 → 解析 Excel 获取 11 个扩展字段
+    4. 写入数据库
+    5. 实时推送日志 + 汇总报告
+    """
+
+    def _sse_log(project_name, duration, status, reason=''):
+        data = {
+            'projectName': project_name,
+            'duration': duration,
+            'status': status,
+            'reason': reason,
+        }
+        return f'event: log\ndata: {json.dumps(data, ensure_ascii=False)}\n\n'
+
+    def _sse_complete(total, with_table, success, skipped, failed,
+                      skip_details, fail_details, success_details):
+        data = {
+            'totalProjects': total,
+            'withRequirementTable': with_table,
+            'syncedSuccessfully': success,
+            'skipped': skipped,
+            'failedToImport': failed,
+            'skipDetails': skip_details,
+            'failDetails': fail_details,
+            'syncedSuccessfullyDetails': success_details,
+        }
+        return f'event: complete\ndata: {json.dumps(data, ensure_ascii=False)}\n\n'
+
+    def event_stream():
+        projects = _search_projects_internal()
+        total = len(projects)
+        with_table = 0
+        success = 0
+        skipped = 0
+        failed = 0
+        skip_details = {}
+        fail_details = {}
+        success_details = {}
+
+        for p in projects:
+            project_name = p.get('项目名称', '')
+            customer_name = p.get('客户', '')
+            launcher = p.get('Launcher', '')
+            hardware_version = p.get('硬件版型', '')
+            android_version = p.get('Android版本', '')
+            brand_original = p.get('厂商', '')
+            config_path = p.get('配置表路径', '')
+
+            if config_path:
+                with_table += 1
+
+            # ---- 跳过检查 1: 客户是否存在 ----
+            customer = Customer.objects.filter(name=customer_name).first()
+            if not customer:
+                skipped += 1
+                skip_details['客户不存在'] = skip_details.get('客户不存在', 0) + 1
+                yield _sse_log(project_name, 0, 'skipped', '客户不存在')
+                continue
+
+            # ---- 跳过检查 2: 项目是否已存在 ----
+            exists = Project.objects.filter(
+                customer=customer,
+                project_name=project_name,
+                hardware_version=hardware_version,
+            ).exists()
+            if exists:
+                skipped += 1
+                skip_details['项目已存在'] = skip_details.get('项目已存在', 0) + 1
+                yield _sse_log(project_name, 0, 'skipped',
+                               f'项目已存在（{hardware_version} - {project_name}）')
+                continue
+
+            # ---- 解析 Excel 配置表 ----
+            extra = {}
+            if config_path:
+                try:
+                    extra = parse_excel_config(config_path, project_name)
+                except Exception as e:
+                    failed += 1
+                    fail_details['配置表解析失败'] = fail_details.get('配置表解析失败', 0) + 1
+                    yield _sse_log(project_name, 0, 'failed',
+                                   f'配置表解析失败：{str(e)}')
+                    continue
+
+            # ---- 字段合并：厂商可被覆盖 ----
+            brand = extra.get('brand') or brand_original
+
+            # ---- 写入数据库 ----
+            try:
+                max_sn = Project.objects.filter(customer=customer).aggregate(
+                    m=Max('serial_number')
+                )['m'] or 0
+
+                # 转换日期
+                est_date = None
+                if extra.get('project_establish_date'):
+                    try:
+                        est_date = datetime.strptime(
+                            extra['project_establish_date'], '%Y/%m/%d'
+                        ).date()
+                    except (ValueError, TypeError):
+                        est_date = None
+
+                Project.objects.create(
+                    customer=customer,
+                    serial_number=max_sn + 1,
+                    project_name=project_name,
+                    hardware_version=hardware_version,
+                    android_version=android_version,
+                    brand=brand,
+                    launcher=launcher,
+                    # 扩展字段
+                    model=extra.get('model', ''),
+                    pir=(extra.get('pir', '') == '有'),
+                    led=(extra.get('led', '') == '有'),
+                    light_sensor=extra.get('light_sensor', '无'),
+                    wifi=extra.get('wifi', '2.4G'),
+                    screen_size=extra.get('screen_size', ''),
+                    screen_model=extra.get('screen_model', ''),
+                    tp=extra.get('tp', ''),
+                    shell=extra.get('shell', ''),
+                    project_establish_date=est_date,
+                    remarks=extra.get('remarks', ''),
+                )
+                success += 1
+                success_details[customer_name] = success_details.get(customer_name, 0) + 1
+                yield _sse_log(project_name, 0, 'success', '同步成功')
+
+            except Exception as e:
+                failed += 1
+                fail_details['数据库写入异常'] = fail_details.get('数据库写入异常', 0) + 1
+                yield _sse_log(project_name, 0, 'failed',
+                               f'数据库写入异常：{str(e)}')
+
+        # 汇总报告
+        yield _sse_complete(total, with_table, success, skipped, failed,
+                            skip_details, fail_details, success_details)
+
+    response = StreamingHttpResponse(
+        event_stream(),
+        content_type='text/event-stream',
+    )
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'
+    return response
 
 
 def _get_android_version(folder_name):
@@ -562,7 +743,10 @@ def _find_excel_file(directory):
     匹配规则：文件名包含"订单"/"软硬"/"硬件"/"配置"/"表" 任一关键词 + .xlsx/.xls
     多个匹配时取文件名最长的
     """
-    if not os.path.isdir(directory):
+    try:
+        if not os.path.isdir(directory):
+            return None
+    except OSError:
         return None
     matched_files = []
     try:
@@ -570,10 +754,10 @@ def _find_excel_file(directory):
             if not (f.endswith('.xlsx') or f.endswith('.xls')):
                 continue
             name = os.path.splitext(f)[0]
-            keywords = ['订单', '软硬', '硬件', '配置', '表', '需求', '软件']
+            keywords = ['订单', '软硬', '硬件', '配置', '表', '需求', '软件', 'clink', '数码', '相框']
             if any(kw in name for kw in keywords):
                 matched_files.append(f)
-    except PermissionError:
+    except OSError:
         pass
     if not matched_files:
         return None
@@ -618,10 +802,16 @@ def _search_excel_in_level6(level5_dirs, l4_path):
     for l5_dir in sorted(level5_dirs):
         l5_path = os.path.join(l4_path, l5_dir)
         try:
-            level6_dirs = [d for d in os.listdir(l5_path)
-                           if os.path.isdir(os.path.join(l5_path, d))]
-        except PermissionError:
+            entries = os.listdir(l5_path)
+        except OSError:
             continue
+        level6_dirs = []
+        for d in entries:
+            try:
+                if os.path.isdir(os.path.join(l5_path, d)):
+                    level6_dirs.append(d)
+            except OSError:
+                continue
         for l6_dir in sorted(level6_dirs):
             l6_path = os.path.join(l5_path, l6_dir)
             excel_path = _find_excel_file(l6_path)
