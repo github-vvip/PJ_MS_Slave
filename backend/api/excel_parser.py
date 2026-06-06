@@ -138,10 +138,10 @@ def _extract_after(text, keyword):
 
 def parse_model(ws):
     """
-    型号 — 检索区域 D18, D19, D20
-    遍历三个单元格，找包含"型号"的 → 读取同行右侧相邻单元格
+    型号 — 检索区域 D18, D19, D20, D21
+    遍历单元格，找包含"型号"的 → 读取同行右侧相邻单元格
     """
-    for row in [18, 19, 20]:
+    for row in [18, 19, 20, 21]:
         cell_text = _cell_text(ws, f'D{row}')
         if '型号' in cell_text:
             return _cell_text(ws, f'E{row}')
@@ -247,14 +247,15 @@ def parse_light_sensor(ws, project_name=''):
             return '无'
         if _has_red_font(target, '有'):
             return _detect_light_sensor_model(ws, project_name)
-        # 方块字符
+        # 方块字符 — ■ 后面的文本为选中值
         plain = str(target.value or '')
-        idx_empty = plain.find('□')
         idx_filled = plain.find('■')
-        if idx_empty >= 0 and idx_filled >= 0:
-            if idx_filled > idx_empty:
+        if idx_filled >= 0:
+            after = plain[idx_filled + 1:].strip()
+            if after.startswith('有'):
                 return _detect_light_sensor_model(ws, project_name)
-            return '无'
+            elif after.startswith('无'):
+                return '无'
         return '无'
     return '无'
 
@@ -280,6 +281,10 @@ def parse_wifi(ws):
         plain = str(target.value or '')
         after = _square_after_text(plain)
         if '5G' in after:
+            return '5G'
+        if '单' in after:
+            return '2.4G'
+        if '双' in after:
             return '5G'
         return '2.4G'
     return ''
@@ -685,7 +690,7 @@ def parse_remarks(ws):
     if val:
         parts.append(val)
 
-    # 段 2, 3: G8:G14
+    # 段 2: G8:G14 中"重力感应"右侧 ■ 后的文本
     for row in range(8, 15):
         cell_text = _cell_text(ws, f'G{row}')
         if '重力感应' in cell_text:
@@ -693,7 +698,11 @@ def parse_remarks(ws):
             val = _square_after_text(target_text)
             if val:
                 parts.append(f'重力感应：{val}')
-        elif 'GMS' in cell_text.upper():
+
+    # 段 3: G8:G16 中"GMS"右侧 ■ 后的文本
+    for row in range(8, 17):
+        cell_text = _cell_text(ws, f'G{row}')
+        if 'GMS' in cell_text.upper():
             target_text = _cell_text(ws, f'H{row}')
             val = _square_after_text(target_text)
             if val:
