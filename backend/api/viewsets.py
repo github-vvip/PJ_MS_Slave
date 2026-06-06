@@ -377,10 +377,19 @@ ANDROID_VERSION_MAP = {
 
 # Launcher 推导规则（项目名称关键词 → Launcher 值）
 LAUNCHER_RULES = [
+    ('-wf', 'WF'),
+    ('-fm', 'FM'),
+    ('-uh', 'UH'),
     ('photo', 'WP'),
-    ('frame', 'FM'),
     ('whaleframely', 'WF'),
+    ('frame_wf', 'WP'),
+    ('frame', 'FM'),
+    ('manufacturer', 'FM'),
+    ('uhale', 'UH'),
     ('fcalendar', 'FC'),
+    ('mtkcal', 'CT'),
+    ('mtkcalendar', 'CT'),
+    ('kairos', 'CT'),
 ]
 
 DEFAULT_LAUNCHER = 'OM'
@@ -598,6 +607,13 @@ def data_sync_execute(request):
                                f'项目已存在（{hardware_version} - {project_name}）')
                 continue
 
+            # ---- 跳过检查 3: 未匹配到 Excel 配置表，不导入数据库 ----
+            if not config_path:
+                skipped += 1
+                skip_details['无配置表'] = skip_details.get('无配置表', 0) + 1
+                yield _sse_log(project_name, 0, 'skipped', '未匹配到配置表')
+                continue
+
             # ---- 解析 Excel 配置表 ----
             extra = {}
             if config_path:
@@ -612,6 +628,10 @@ def data_sync_execute(request):
 
             # ---- 字段合并：厂商可被覆盖 ----
             brand = extra.get('brand') or brand_original
+
+            # ---- Launcher 覆盖：基础为 OM 时尝试从 Excel 解析 ----
+            if launcher == 'OM' and extra.get('launcher'):
+                launcher = extra['launcher']
 
             # ---- 写入数据库 ----
             try:
@@ -751,11 +771,16 @@ def _find_excel_file(directory):
     matched_files = []
     try:
         for f in os.listdir(directory):
-            if not (f.endswith('.xlsx') or f.endswith('.xls')):
+            # 用 os.path.splitext 精确取扩展名，避免 endswith 边缘情况
+            base_name, ext = os.path.splitext(f)
+            ext_lower = ext.lower()
+            if ext_lower not in ('.xlsx', '.xls'):
                 continue
-            name = os.path.splitext(f)[0]
+            # 排除双层后缀文件（如 需求.txt.xlsx → base_name=需求.txt）
+            if any(base_name.endswith(bad) for bad in ['.txt', '.csv', '.doc', '.docx', '.pdf', '.TXT', '.CSV']):
+                continue
             keywords = ['订单', '软硬', '硬件', '配置', '表', '需求', '软件', 'clink', '数码', '相框']
-            if any(kw in name for kw in keywords):
+            if any(kw in base_name for kw in keywords):
                 matched_files.append(f)
     except OSError:
         pass

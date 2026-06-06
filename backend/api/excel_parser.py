@@ -423,18 +423,197 @@ def parse_tp(ws):
     return ''
 
 
-def parse_shell(ws):
+def _is_block_red(block, cell=None):
     """
-    壳 — 检索区域 A22, A23, A24
-    遍历三个单元格，找包含"模具"或"壳"的 → 取右侧 B 列 → ■ 后文本
+    判断富文本块（或整个单元格）的字体颜色是否为红色
+    返回 True 表示该块字体包含红色
     """
-    for row in [22, 23, 24]:
+    font = getattr(block, 'font', None) or (cell.font if cell is not None else None)
+    if not font or not font.color:
+        return False
+    try:
+        rgb = str(font.color.rgb) if font.color.rgb else ''
+    except Exception:
+        return False
+    rgb_upper = rgb.upper().replace('0X', '')
+    if len(rgb_upper) == 8 and rgb_upper.startswith('00'):
+        rgb_upper = rgb_upper[2:]
+    return 'FF0000' in rgb_upper
+
+
+def _extract_chinese(text):
+    """提取文本中所有连续汉字段，按非汉字切分"""
+    if not text:
+        return []
+    result = []
+    current = ''
+    for ch in text:
+        if '一' <= ch <= '鿿':
+            current += ch
+        else:
+            if current:
+                result.append(current)
+                current = ''
+    if current:
+        result.append(current)
+    return result
+
+
+def _get_red_texts_from_xml(cell, file_path):
+    """
+    当 openpyxl 无法解析为 CellRichText（返回纯 str）时，
+    直接解析 xlsx 底层 XML，提取红色字体的文本段落。
+    原因：openpyxl 在 data_only=True 时丢失 _archive 引用，
+    且共享字符串首段无 rPr 时会丢弃全部富文本信息，
+    但 XML 中实际存在 <color rgb="FFFF0000"/> 标记。
+    返回: 红色文本列表，如 ['客户私模']
+    """
+    import xml.etree.ElementTree as ET
+    import zipfile
+    import re
+
+    try:
+        cell_ref = cell.coordinate  # e.g. 'B25'
+        col_letter = re.match(r'([A-Z]+)', cell_ref).group(1)
+        row_num = int(re.match(r'[A-Z]+(\d+)', cell_ref).group(1))
+
+        with zipfile.ZipFile(file_path, 'r') as z:
+            # 步骤1: 读取 sheet1.xml，获取单元格的共享字符串索引
+            if 'xl/worksheets/sheet1.xml' not in z.namelist():
+                return []
+            sheet_data = z.read('xl/worksheets/sheet1.xml')
+            sheet_root = ET.fromstring(sheet_data)
+            ns = {'ns': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+
+            ss_index = None
+            for row_elem in sheet_root.findall('.//ns:row', ns):
+                r = int(row_elem.get('r', '0'))
+                if r != row_num:
+                    continue
+                for c_elem in row_elem.findall('ns:c', ns):
+                    if c_elem.get('r', '') == cell_ref:
+                        cell_type = c_elem.get('t', '')
+                        if cell_type == 's':  # shared string
+                            v_elem = c_elem.find('ns:v', ns)
+                            if v_elem is not None:
+                                ss_index = int(v_elem.text)
+                        break
+                break
+
+            if ss_index is None:
+                return []
+
+            # 步骤2: 读取 sharedStrings.xml，获取该索引的红色文本
+            if 'xl/sharedStrings.xml' not in z.namelist():
+                return []
+            ss_data = z.read('xl/sharedStrings.xml')
+            ss_root = ET.fromstring(ss_data)
+
+            si_list = ss_root.findall('ns:si', ns)
+            if ss_index >= len(si_list):
+                return []
+            si = si_list[ss_index]
+
+            red_texts = []
+            for r_elem in si.findall('ns:r', ns):
+                rpr = r_elem.find('ns:rPr', ns)
+                is_red = False
+                if rpr is not None:
+                    color_elem = rpr.find('ns:color', ns)
+                    if color_elem is not None:
+                        rgb = color_elem.get('rgb', '')
+                        if 'FF0000' in rgb.upper():
+                            is_red = True
+                if is_red:
+                    t_elem = r_elem.find('ns:t', ns)
+                    if t_elem is not None and t_elem.text:
+                        text = t_elem.text.strip()
+                        if text:
+                            red_texts.append(text)
+            return red_texts
+    except Exception:
+        return []
+
+
+def parse_shell(ws, file_path=None):
+    """
+    壳 — 检索区域 A22, A23, A24, A25
+    规则 1: 找包含"模"或"具"或"壳"的 → 取右侧 B 列 → ■ 后文本（跳过"其它"/"其他"）
+    规则 2 (方案 A): ■ 未提取到时，遍历 B 列所有富文本块，
+            找到字体为红色、且包含独立汉字段的块 → 提取该块的汉字段
+            不依赖 □ 切分，不依赖位置先后，可处理"客户私模"等空格后的红色文字
+    file_path: 当 openpyxl 丢失富文本信息时，用于直接解析 xlsx XML 底层
+    """
+    SKIP_PREFIXES = ['其它', '其他']
+
+    for row in [22, 23, 24, 25]:
         cell_text = _cell_text(ws, f'A{row}')
-        if '模具' in cell_text or '壳' in cell_text:
-            target_text = _cell_text(ws, f'B{row}')
-            val = _square_after_text(target_text)
+        if '模' not in cell_text and '具' not in cell_text and '壳' not in cell_text:
+            continue
+
+        cell = ws[f'B{row}']
+        target_text = _cell_text(ws, f'B{row}')
+
+        # 规则 1: 找到第一个 ■
+        filled_idx = target_text.find('■')
+        if filled_idx >= 0:
+            after = target_text[filled_idx + 1:].strip()
+            for prefix in SKIP_PREFIXES:
+                if after.startswith(prefix):
+                    after = after[len(prefix):].strip()
+            parts = after.split(' ', 1)
+            val = parts[0].strip().replace('：', '').replace(':', '').replace('　', '')
             if val:
                 return val
+
+        # 规则 2 (方案 A): 遍历所有富文本块，找红色字体的汉字段
+        if isinstance(cell.value, CellRichText):
+            for block in cell.value:
+                if not _is_block_red(block):
+                    continue
+                block_text = block.text
+                # 提取块中所有汉字段
+                chinese_segments = _extract_chinese(block_text)
+                if not chinese_segments:
+                    continue
+                # 取第一个非黑名单的汉字段
+                for seg in chinese_segments:
+                    val = seg.replace('：', '').replace(':', '').replace('　', '').strip()
+                    skip = False
+                    for prefix in SKIP_PREFIXES:
+                        if val.startswith(prefix):
+                            skip = True
+                            break
+                    if not skip and val:
+                        return val
+
+        # 规则 2b: openpyxl 未解析为 CellRichText 时，直接解析 xlsx XML 提取红色文本
+        if not isinstance(cell.value, CellRichText) and isinstance(cell.value, str) and file_path:
+            red_texts = _get_red_texts_from_xml(cell, file_path)
+            for red_text in red_texts:
+                chinese_segments = _extract_chinese(red_text)
+                for seg in chinese_segments:
+                    val = seg.replace('：', '').replace(':', '').replace('　', '').strip()
+                    skip = False
+                    for prefix in SKIP_PREFIXES:
+                        if val.startswith(prefix):
+                            skip = True
+                            break
+                    if not skip and val:
+                        return val
+
+        # 兜底：整单元格字体为红色 → 取所有汉字段中第一个非黑名单
+        if cell.value and cell.font and _is_block_red(None, cell):
+            chinese_segments = _extract_chinese(target_text)
+            for seg in chinese_segments:
+                val = seg.replace('：', '').replace(':', '').replace('　', '').strip()
+                skip = False
+                for prefix in SKIP_PREFIXES:
+                    if val.startswith(prefix):
+                        skip = True
+                        break
+                if not skip and val:
+                    return val
     return ''
 
 
@@ -519,6 +698,63 @@ def parse_remarks(ws):
     return '；'.join(parts) if parts else ''
 
 
+def parse_launcher_from_excel(ws):
+    """
+    Launcher — 检索区域 B21:B24
+    仅在基础 Launcher 为 OM 时调用
+    步骤 1: 检查红色字体
+    步骤 2: ■ 后文本 → 关键词映射
+    """
+    LAUNCHER_RED_RULES = [
+        ('FrameO', 'FM'),
+        ('Photo', 'WP'),
+        ('Uhale', 'UH'),
+        ('MTKCalen', 'CT'),
+        ('kairos', 'CT'),
+    ]
+
+    # ■ 后文本 → Launcher 映射表（不区分大小写）
+    LAUNCHER_MAP = {
+        'photo': 'WP',
+        'frameo': 'FM',
+        'whaleframely': 'WF',
+        'uhale': 'UH',
+        'timer': 'CT',
+        'manufacturer': 'CT',
+        'mtkcal': 'CT',
+        'kairos': 'CT',
+        '智象日历': 'WF',
+    }
+
+    for row in range(21, 25):
+        cell = ws[f'B{row}']
+        # 步骤 1: 红色字体检测
+        for keyword, launcher in LAUNCHER_RED_RULES:
+            if _has_red_font(cell, keyword):
+                return launcher
+
+        # 步骤 2: ■ 后文本判断 → 关键词映射
+        text = str(cell.value or '')
+        filled_idx = text.find('■')
+        if filled_idx >= 0:
+            after = text[filled_idx + 1:].strip()
+            # 跳过"其它"二字
+            if after.startswith('其它'):
+                after = after[2:].strip()
+            # 读取直到遇到空格或结束
+            parts = after.split(' ', 1)
+            val = parts[0].strip().lower()
+            if val:
+                # 关键词映射
+                for keyword, launcher in LAUNCHER_MAP.items():
+                    if keyword in val or keyword == val:
+                        return launcher
+                # 未匹配到任何关键词，不覆盖（沿用雷达检索值 OM）
+                return None
+
+    return None  # 不覆盖
+
+
 # ============================================================
 # 主入口
 # ============================================================
@@ -556,9 +792,10 @@ def parse_excel_config(file_path, project_name=''):
             'screen_size': parse_screen_size(ws),
             'screen_model': '',
             'tp': parse_tp(ws),
-            'shell': parse_shell(ws),
+            'shell': parse_shell(ws, file_path),
             'project_establish_date': parse_date(ws),
             'remarks': parse_remarks(ws),
+            'launcher': parse_launcher_from_excel(ws),
         }
         # screen_model 依赖 screen_size
         result['screen_model'] = parse_screen_model(ws, result['screen_size'])
