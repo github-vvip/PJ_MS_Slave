@@ -483,15 +483,29 @@ def _search_projects_internal():
 
                 if not excel_path:
                     if not project_name:
-                        # 四级只有客户名，到五级文件夹找项目名称
-                        project_name, excel_path = _search_project_in_level5(
+                        # 四级只有客户名（纯中文），到五级文件夹找项目名称
+                        # 每个五级子目录代表一个独立项目，全部收集
+                        l5_results = _search_projects_in_level5(
                             level5_dirs, l4_path
                         )
+                        for l5_project_name, l5_excel_path in l5_results:
+                            launcher = _derive_launcher(l5_project_name or '')
+                            if customer and l5_project_name and customer != '新需求':
+                                results.append({
+                                    '客户': customer,
+                                    '厂商': vendor,
+                                    '项目名称': l5_project_name,
+                                    '硬件版型': hardware_version,
+                                    'Android版本': android_version,
+                                    'Launcher': launcher,
+                                    '配置表路径': l5_excel_path or '',
+                                })
                         # 五级未找到 Excel，尝试六级
-                        if not excel_path:
+                        if not l5_results:
                             excel_path = _search_excel_in_level6(
                                 level5_dirs, l4_path
                             )
+                        continue  # 五级/六级已处理，跳过后续单个结果逻辑
                     else:
                         # 四级已有客户+项目名，到五级找 Excel
                         excel_path = _search_excel_in_level5(level5_dirs, l4_path)
@@ -800,16 +814,21 @@ def _derive_launcher(project_name):
     return DEFAULT_LAUNCHER
 
 
-def _search_project_in_level5(level5_dirs, l4_path):
-    """在五级文件夹中查找项目名称和 Excel 文件"""
+def _search_projects_in_level5(level5_dirs, l4_path):
+    """
+    在五级文件夹中查找所有项目名称和 Excel 文件
+    返回列表: [(project_name, excel_path), ...]
+    当四级目录为纯中文（无项目名）时，每个五级子目录代表一个独立项目
+    """
+    results = []
     for l5_dir in sorted(level5_dirs):
         l5_project = _parse_level5_project_name(l5_dir)
         if l5_project:
             l5_path = os.path.join(l4_path, l5_dir)
             excel_path = _find_excel_file(l5_path)
             if excel_path:
-                return l5_project, excel_path
-    return None, None
+                results.append((l5_project, excel_path))
+    return results
 
 
 def _search_excel_in_level5(level5_dirs, l4_path):

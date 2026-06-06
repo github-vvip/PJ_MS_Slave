@@ -180,12 +180,16 @@ def _parse_led_pir(ws, keyword):
             return '有'
         if _has_red_font(target, '无'):
             return '无'
-        # 步骤 3: 方块字符
+        # 步骤 3: 方块字符 — ■ 后面的文本为选中值
         plain = str(target.value or '')
-        idx_empty = plain.find('□')
         idx_filled = plain.find('■')
-        if idx_empty >= 0 and idx_filled >= 0:
-            return '有' if idx_filled > idx_empty else '无'
+        if idx_filled >= 0:
+            after = plain[idx_filled + 1:].strip()
+            if after.startswith('有'):
+                return '有'
+            elif after.startswith('无'):
+                return '无'
+        # 无 ■ 或无法识别 → 默认无
         return '无'
     return '无'
 
@@ -546,7 +550,7 @@ def parse_shell(ws, file_path=None):
     """
     SKIP_PREFIXES = ['其它', '其他']
 
-    for row in [22, 23, 24, 25]:
+    for row in [21, 22, 23, 24, 25]:
         cell_text = _cell_text(ws, f'A{row}')
         if '模' not in cell_text and '具' not in cell_text and '壳' not in cell_text:
             continue
