@@ -231,28 +231,31 @@ def _detect_light_sensor_model(ws, project_name):
 
 def parse_light_sensor(ws, project_name=''):
     """
-    光感 — 检索区域 G9:G14，最复杂
-    步骤 1: 找包含"光感"的单元格 → 取右侧 H 列
+    光感 — 检索区域 G9:G14 和 A9:A14
+    步骤 1: 找包含"光感"的单元格 → 取右侧相邻列（G列→H，A列→B）
     步骤 2: 红色字体检测
-    步骤 3: □/■ 索引判断
+    步骤 3: ■ 后文本判断
     步骤 4: 光感型号子流程
     """
-    for row in range(9, 15):
-        cell_text = _cell_text(ws, f'G{row}')
+    # 检索区域：(检索列, 值列) 组合
+    areas = [(f'G{row}', f'H{row}') for row in range(9, 15)] + \
+            [(f'A{row}', f'B{row}') for row in range(9, 15)]
+    for cell_ref, target_ref in areas:
+        cell_text = _cell_text(ws, cell_ref)
         if '光感' not in cell_text:
             continue
-        target = ws[f'H{row}']
+        target = ws[target_ref]
         # 红色字体
         if _has_red_font(target, '无'):
             return '无'
-        if _has_red_font(target, '有'):
+        if _has_red_font(target, '有') or _has_red_font(target, '座子'):
             return _detect_light_sensor_model(ws, project_name)
         # 方块字符 — ■ 后面的文本为选中值
         plain = str(target.value or '')
         idx_filled = plain.find('■')
         if idx_filled >= 0:
             after = plain[idx_filled + 1:].strip()
-            if after.startswith('有'):
+            if after.startswith('有') or after.startswith('座子'):
                 return _detect_light_sensor_model(ws, project_name)
             elif after.startswith('无'):
                 return '无'

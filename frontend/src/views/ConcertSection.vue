@@ -198,6 +198,7 @@ async function loadAllRecords() {
   try {
     const modules = await getTaskModules()
     const result = []
+    let latestSavedAt = null
     for (const mod of modules) {
       const records = await getHistorySnapshots({ module_name: mod.name })
       const dateMap = new Map()
@@ -213,6 +214,10 @@ async function loadAllRecords() {
           savedAt: record.saved_at,
           contentHash: record.content_hash,
         })
+        const ts = new Date(record.saved_at).getTime()
+        if (!latestSavedAt || ts > latestSavedAt) {
+          latestSavedAt = ts
+        }
       }
       const dates = []
       for (const [date, recs] of dateMap) {
@@ -230,6 +235,9 @@ async function loadAllRecords() {
       })
     }
     moduleData.value = result
+    if (latestSavedAt) {
+      lastSaveTime.value = formatTime(new Date(latestSavedAt).toISOString())
+    }
   } catch (e) {
     console.error('加载历史记录失败:', e)
     dbAvailable.value = false

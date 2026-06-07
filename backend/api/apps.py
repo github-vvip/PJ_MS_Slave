@@ -7,6 +7,6 @@ class ApiConfig(AppConfig):
 
     def ready(self):
         import os
-        if os.environ.get('RUN_MAIN') == 'true' or not os.environ.get('RUN_MAIN'):
+        if os.environ.get('RUN_MAIN') == 'true':
             from .scheduler import start_scheduler
             start_scheduler()

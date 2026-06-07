@@ -29,10 +29,10 @@
         <el-select v-model="filterAndroid" placeholder="Android版本" clearable multiple collapse-tags class="filter-select" size="small" @change="loadProjects">
           <el-option v-for="v in uniqueAndroidVersions" :key="v" :label="v" :value="v" />
         </el-select>
-        <el-select v-model="filterScreenSize" placeholder="屏幕尺寸" clearable class="filter-select filter-select-screen" size="small" @change="loadProjects">
+        <el-select v-model="filterScreenSize" placeholder="屏幕尺寸" clearable multiple collapse-tags class="filter-select filter-select-multi" size="small" @change="loadProjects">
           <el-option v-for="v in uniqueScreenSizes" :key="v" :label="v" :value="v" />
         </el-select>
-        <el-select v-model="filterTP" placeholder="TP" clearable class="filter-select" size="small" @change="loadProjects">
+        <el-select v-model="filterTP" placeholder="TP" clearable multiple collapse-tags class="filter-select filter-select-multi" size="small" @change="loadProjects">
           <el-option v-for="v in uniqueTPs" :key="v" :label="v" :value="v" />
         </el-select>
         <button class="reset-btn" v-ripple @click="resetFilters">
@@ -502,12 +502,12 @@ const resetColumnSettings = () => {
 const customers = ref([])
 const currentCustomerId = ref(null)
 const projectList = ref([])
-const filterOptions = ref({ hardware_versions: [], android_versions: [], brands: [] })
+const filterOptions = ref({ hardware_versions: [], android_versions: [], brands: [], screen_sizes: [], tps: [] })
 const searchText = ref('')
 const filterHardware = ref([])
 const filterAndroid = ref([])
-const filterScreenSize = ref('')
-const filterTP = ref('')
+const filterScreenSize = ref([])
+const filterTP = ref([])
 const currentPage = ref(1)
 const pageSize = ref(15)
 const showForm = ref(false)
@@ -559,11 +559,11 @@ const uniqueAndroidVersions = computed(() => {
 })
 
 const uniqueScreenSizes = computed(() => {
-  return [...new Set(projectList.value.map(p => p.screen_size).filter(Boolean))]
+  return [...new Set(filterOptions.value.screen_sizes.filter(Boolean))]
 })
 
 const uniqueTPs = computed(() => {
-  return [...new Set(projectList.value.map(p => p.tp).filter(Boolean))]
+  return [...new Set(filterOptions.value.tps.filter(Boolean))]
 })
 
 const onTabsWheel = (e) => {
@@ -603,8 +603,8 @@ const loadProjects = async () => {
     if (searchText.value) params.search = searchText.value
     if (filterHardware.value.length > 0) params.hardware_version = filterHardware.value.join(',')
     if (filterAndroid.value.length > 0) params.android_version = filterAndroid.value.join(',')
-    if (filterScreenSize.value) params.screen_size = filterScreenSize.value
-    if (filterTP.value) params.tp = filterTP.value
+    if (filterScreenSize.value.length > 0) params.screen_size = filterScreenSize.value.join(',')
+    if (filterTP.value.length > 0) params.tp = filterTP.value.join(',')
     projectList.value = await getProjects(params)
   } catch (e) {
     ElMessage.error('加载项目列表失败')
@@ -625,8 +625,8 @@ const resetFilters = () => {
   searchText.value = ''
   filterHardware.value = []
   filterAndroid.value = []
-  filterScreenSize.value = ''
-  filterTP.value = ''
+  filterScreenSize.value = []
+  filterTP.value = []
   currentCustomerId.value = null
   currentPage.value = 1
   loadProjects()
@@ -1382,7 +1382,11 @@ onBeforeUnmount(() => {
 }
 
 .filter-select-screen {
-  width: 100px;
+  width: 130px;
+}
+
+.filter-select-multi {
+  width: 130px;
 }
 
 .filter-select :deep(.el-input__wrapper) {
