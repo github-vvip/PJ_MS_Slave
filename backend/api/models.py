@@ -60,7 +60,7 @@ class HistorySnapshot(models.Model):
 
 class Customer(models.Model):
     """客户表：按客户分组管理项目"""
-    name = models.CharField('客户名称', max_length=100)
+    name = models.CharField('客户名称', max_length=100, unique=True)
     created_at = models.DateTimeField('创建时间', auto_now_add=True)
 
     class Meta:

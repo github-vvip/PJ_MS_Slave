@@ -47,6 +47,18 @@ class CustomerSerializer(serializers.ModelSerializer):
     def get_project_count(self, obj):
         return obj.projects.count()
 
+    def validate_name(self, value):
+        name = value.strip()
+        if not name:
+            raise serializers.ValidationError('客户名称不能为空')
+        # 检查同名（排除自身，支持更新场景）
+        qs = Customer.objects.filter(name__iexact=name)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError(f'客户 "{name}" 已存在，不能重复添加')
+        return name
+
 
 class ProjectSerializer(serializers.ModelSerializer):
     """项目配置序列化器"""

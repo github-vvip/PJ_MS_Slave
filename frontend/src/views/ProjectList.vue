@@ -638,19 +638,27 @@ const handleAddCustomer = () => {
 }
 
 const confirmAddCustomer = async () => {
-  if (!newCustomerName.value.trim()) {
+  const name = newCustomerName.value.trim()
+  if (!name) {
     ElMessage.warning('请输入客户名称')
+    return
+  }
+  // 前端检查同名
+  const exists = customers.value.some(c => c.name.toLowerCase() === name.toLowerCase())
+  if (exists) {
+    ElMessage.warning(`客户 "${name}" 已存在，不能重复添加`)
     return
   }
   addCustomerLoading.value = true
   try {
-    await createCustomer({ name: newCustomerName.value.trim() })
+    await createCustomer({ name })
     ElMessage.success('创建成功')
     showAddCustomerDialog.value = false
     newCustomerName.value = ''
     await loadCustomers()
   } catch (e) {
-    ElMessage.error('创建失败')
+    const msg = e?.response?.data?.name?.[0] || e?.response?.data?.detail || '创建失败'
+    ElMessage.error(typeof msg === 'string' ? msg : '创建失败')
   } finally {
     addCustomerLoading.value = false
   }
