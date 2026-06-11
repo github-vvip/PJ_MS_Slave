@@ -732,8 +732,9 @@ def parse_launcher_from_excel(ws):
     # ■ 后文本 → Launcher 映射表（不区分大小写）
     LAUNCHER_MAP = {
         'photo': 'WP',
-        'frameo': 'FM',
         'whaleframely': 'WF',
+        'frameo': 'FM',
+        'frame': 'FM',
         'uhale': 'UH',
         'timer': 'CT',
         'manufacturer': 'CT',
