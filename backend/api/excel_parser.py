@@ -716,41 +716,41 @@ def parse_remarks(ws):
 
 def parse_launcher_from_excel(ws):
     """
-    Launcher — 检索区域 B21:B24
+    Launcher — 检索区域 A21:A24
     仅在基础 Launcher 为 OM 时调用
-    步骤 1: 检查红色字体
-    步骤 2: ■ 后文本 → 关键词映射
+    步骤 1: 找包含"应用"或"服务"的单元格 → 取右侧相邻 B 列
+    步骤 2: 红色字体检测
+    步骤 3: ■ 后文本 → 关键词映射
     """
-    LAUNCHER_RED_RULES = [
-        ('FrameO', 'FM'),
-        ('Photo', 'WP'),
-        ('Uhale', 'UH'),
-        ('MTKCalen', 'CT'),
+    # 关键词 → Launcher 映射（红色字体 和 ■ 后文本共用）
+    LAUNCHER_KEYWORDS = [
+        ('photo', 'WP'),
+        ('frameo', 'FM'),
+        ('whaleframely', 'WF'),
+        ('framely', 'WF'),
+        ('uhale', 'UH'),
+        ('timer', 'CT'),
+        ('manufacturer', 'FM'),
+        ('mtkcal', 'CT'),
         ('kairos', 'CT'),
+        ('智象日历', 'WF'),
+        ('frame_wf', 'WP'),
     ]
 
-    # ■ 后文本 → Launcher 映射表（不区分大小写）
-    LAUNCHER_MAP = {
-        'photo': 'WP',
-        'whaleframely': 'WF',
-        'frameo': 'FM',
-        'frame': 'FM',
-        'uhale': 'UH',
-        'timer': 'CT',
-        'manufacturer': 'CT',
-        'mtkcal': 'CT',
-        'kairos': 'CT',
-        '智象日历': 'WF',
-    }
-
     for row in range(21, 25):
-        cell = ws[f'B{row}']
-        # 步骤 1: 红色字体检测
-        for keyword, launcher in LAUNCHER_RED_RULES:
+        cell_text = _cell_text(ws, f'A{row}')
+        # 步骤 1: 不包含"应用"且不包含"服务" → 跳过
+        if '应用' not in cell_text and '服务' not in cell_text:
+            continue
+
+        cell = ws[f'B{row}']  # 右侧相邻 B 列
+
+        # 步骤 2: 红色字体检测
+        for keyword, launcher in LAUNCHER_KEYWORDS:
             if _has_red_font(cell, keyword):
                 return launcher
 
-        # 步骤 2: ■ 后文本判断 → 关键词映射
+        # 步骤 3: ■ 后文本 → 关键词映射
         text = str(cell.value or '')
         filled_idx = text.find('■')
         if filled_idx >= 0:
@@ -762,11 +762,10 @@ def parse_launcher_from_excel(ws):
             parts = after.split(' ', 1)
             val = parts[0].strip().lower()
             if val:
-                # 关键词映射
-                for keyword, launcher in LAUNCHER_MAP.items():
+                for keyword, launcher in LAUNCHER_KEYWORDS:
                     if keyword in val or keyword == val:
                         return launcher
-                # 未匹配到任何关键词，不覆盖（沿用雷达检索值 OM）
+                # 未匹配到任何关键词，不覆盖
                 return None
 
     return None  # 不覆盖
