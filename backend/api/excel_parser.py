@@ -5,7 +5,7 @@ Excel 配置表解析模块
 """
 import re
 import openpyxl
-from openpyxl.cell.rich_text import CellRichText
+from openpyxl.cell.rich_text import CellRichText, TextBlock
 
 # ============================================================
 # 屏幕型号兜底映射表
@@ -70,6 +70,12 @@ def _has_red_font(cell, text):
     # 情况 2: 纯文本单元格 → 检查整单元格字体颜色
     plain = str(cell.value or '')
     if _is_isolated_keyword(plain, text) and cell.font and cell.font.color:
+        # 如果单元格同时包含 ■ 和 □（多选项），要求关键词出现在 ■ 之后（选中项）
+        if '■' in plain and '□' in plain:
+            # 构建 ■+文本 模式，检查是否出现在 ■ 后面
+            filled_pattern = r'■\s*' + re.escape(text) + r'(?:[\s□]|$)'
+            if not re.search(filled_pattern, plain):
+                return False
         try:
             rgb = str(cell.font.color.rgb) if cell.font.color.rgb else ''
         except Exception:
@@ -138,10 +144,10 @@ def _extract_after(text, keyword):
 
 def parse_model(ws):
     """
-    型号 — 检索区域 D18, D19, D20, D21
+    型号 — 检索区域 D17, D18, D19, D20, D21
     遍历单元格，找包含"型号"的 → 读取同行右侧相邻单元格
     """
-    for row in [18, 19, 20, 21]:
+    for row in [17, 18, 19, 20, 21]:
         cell_text = _cell_text(ws, f'D{row}')
         if '型号' in cell_text:
             return _cell_text(ws, f'E{row}')
@@ -163,7 +169,7 @@ def parse_brand(ws):
     return None  # None 表示不覆盖
 
 
-def _parse_led_pir(ws, keyword):
+def _parse_led_pir(ws, keyword, file_path=None):
     """
     LED/PIR 共用解析逻辑 — 检索区域 G9:G14
     步骤 1: 找包含 keyword 的单元格 → 取右侧相邻 H 列
@@ -179,7 +185,22 @@ def _parse_led_pir(ws, keyword):
         if _has_red_font(target, '有'):
             return '有'
         if _has_red_font(target, '无'):
-            return '无'
+            # data_only 可能丢失富文本信息，重新验证
+            if not isinstance(target.value, CellRichText) and file_path:
+                has_red, wu_red = _recheck_red_fonts(file_path, f'G{row}', f'H{row}')
+                if has_red:
+                    return '有'
+                if wu_red:
+                    return '无'
+                # 不确定 → 走 ■ 判断
+            else:
+                return '无'
+        # 步骤 2b: data_only 丢失富文本，■有 未识别
+        if not isinstance(target.value, CellRichText) and file_path:
+            has_red, wu_red = _recheck_red_fonts(file_path, f'G{row}', f'H{row}')
+            if has_red:
+                return '有'
+
         # 步骤 3: 方块字符 — ■ 后面的文本为选中值
         plain = str(target.value or '')
         idx_filled = plain.find('■')
@@ -194,24 +215,34 @@ def _parse_led_pir(ws, keyword):
     return '无'
 
 
-def parse_led(ws):
+def parse_led(ws, file_path=None):
     """LED 字段解析"""
-    return _parse_led_pir(ws, 'RGB')
+    return _parse_led_pir(ws, 'RGB', file_path)
 
 
-def parse_pir(ws):
+def parse_pir(ws, file_path=None):
     """PIR 字段解析"""
-    return _parse_led_pir(ws, 'PIR')
+    return _parse_led_pir(ws, 'PIR', file_path)
 
 
 def _detect_light_sensor_model(ws, project_name):
     """
     光感型号判断子流程
-    优先级 1: 项目名称包含 ADC → ADCF3, 包含 3311 → STK3311
+    优先级 1: 项目名称包含 ADC（且后一位不是"座"） → ADCF3, 包含 3311 → STK3311
     优先级 2: 搜索 B3:J26 区域
     """
+    def _is_adc_valid(val):
+        """判断 ADC 是否有效（后一位不是'座'）"""
+        idx = val.find('ADC')
+        while idx >= 0:
+            next_char = val[idx + 3:idx + 4]
+            if next_char != '座':
+                return True
+            idx = val.find('ADC', idx + 3)
+        return False
+
     pn = (project_name or '').upper()
-    if 'ADC' in pn:
+    if 'ADC' in pn and _is_adc_valid(pn):
         return 'ADCF3'
     if '3311' in pn:
         return 'STK3311'
@@ -220,7 +251,7 @@ def _detect_light_sensor_model(ws, project_name):
     for row in range(3, 27):
         for col in range(2, 11):  # B=2, J=10
             val = str(ws.cell(row=row, column=col).value or '').upper()
-            if 'ADC' in val:
+            if 'ADC' in val and _is_adc_valid(val):
                 found.append('ADCF3')
             if '3311' in val:
                 found.append('STK3311')
@@ -229,7 +260,71 @@ def _detect_light_sensor_model(ws, project_name):
     return '有'  # 仅标记有，不指定型号
 
 
-def parse_light_sensor(ws, project_name=''):
+def _recheck_red_keywords(file_path, target_ref, keywords):
+    """
+    重新加载 Excel（rich_text=True），检查目标单元格中各关键词是否以红色字体出现
+    参数:
+        keywords: 要检查的关键词列表，如 ['有', '无'] 或 ['5G', '2.4G']
+    返回: {关键词: True/False} 字典
+    用于 data_only 丢失富文本信息时的兜底检查
+    """
+    result = {kw: False for kw in keywords}
+    try:
+        wb = openpyxl.load_workbook(file_path, rich_text=True)
+        ws = wb.active
+        if ws is not None:
+            cell = ws[target_ref]
+            # 先获取单元格整体字体颜色（str 类型的文本段会继承此颜色）
+            cell_red = False
+            if cell.font and cell.font.color:
+                try:
+                    crgb = str(cell.font.color.rgb) if cell.font.color.rgb else ''
+                except Exception:
+                    crgb = ''
+                if 'FF0000' in crgb.upper():
+                    cell_red = True
+            if isinstance(cell.value, CellRichText):
+                for item in cell.value:
+                    item_text = ''
+                    is_red = cell_red
+                    if isinstance(item, TextBlock):
+                        item_text = item.text
+                        if item.font and item.font.color:
+                            try:
+                                irgb = str(item.font.color.rgb) if item.font.color.rgb else ''
+                            except Exception:
+                                irgb = ''
+                            if 'FF0000' in irgb.upper():
+                                is_red = True
+                            else:
+                                is_red = False
+                    elif isinstance(item, str):
+                        item_text = item
+                        # str 项继承单元格整体颜色或前序 TextBlock 的颜色
+                    else:
+                        continue
+                    if not is_red:
+                        continue
+                    item_lower = item_text.lower()
+                    for kw in keywords:
+                        if kw.lower() in item_lower:
+                            result[kw] = True
+        wb.close()
+    except Exception:
+        pass
+    return result
+
+
+def _recheck_red_fonts(file_path, cell_ref, target_ref):
+    """
+    兼容包装：检查"有"和"无"是否为红色字体
+    返回: (has_red, wu_red)
+    """
+    r = _recheck_red_keywords(file_path, target_ref, ['有', '无'])
+    return r.get('有', False), r.get('无', False)
+
+
+def parse_light_sensor(ws, project_name='', file_path=None):
     """
     光感 — 检索区域 G9:G14 和 A9:A14
     步骤 1: 找包含"光感"的单元格 → 取右侧相邻列（G列→H，A列→B）
@@ -247,7 +342,17 @@ def parse_light_sensor(ws, project_name=''):
         target = ws[target_ref]
         # 红色字体
         if _has_red_font(target, '无'):
-            return '无'
+            # 如果是纯文本，data_only 可能丢失了富文本信息
+            # 重新加载验证红色字体
+            if not isinstance(target.value, CellRichText) and file_path:
+                red_font_has, red_font_wu = _recheck_red_fonts(file_path, cell_ref, target_ref)
+                if red_font_has:
+                    return _detect_light_sensor_model(ws, project_name)
+                if red_font_wu:
+                    return '无'
+                # 两者都不确定，走 ■ 判断
+            else:
+                return '无'
         if _has_red_font(target, '有') or _has_red_font(target, '座子'):
             return _detect_light_sensor_model(ws, project_name)
         # 方块字符 — ■ 后面的文本为选中值
@@ -263,7 +368,7 @@ def parse_light_sensor(ws, project_name=''):
     return '无'
 
 
-def parse_wifi(ws):
+def parse_wifi(ws, file_path=None):
     """
     WiFi — 检索区域 A8:A14
     步骤 1: 找包含"网络"或"WiFi"的单元格 → 取右侧 B 列
@@ -275,7 +380,14 @@ def parse_wifi(ws):
         if '网络' not in cell_text and 'WiFi' not in cell_text:
             continue
         target = ws.cell(row=row, column=2)  # B 列
-        # 红色字体检测
+        # data_only 丢失富文本信息时以 rich_text 重新验证为准
+        if not isinstance(target.value, CellRichText) and file_path:
+            r = _recheck_red_keywords(file_path, f'B{row}', ['5G', '2.4G'])
+            if r.get('5G'):
+                return '5G'
+            if r.get('2.4G'):
+                return '2.4G'
+        # 红色字体检测（仅对 CellRichText 或纯文本全红色有效）
         if _has_red_font(target, '5G'):
             return '5G'
         if _has_red_font(target, '2.4G'):
@@ -714,7 +826,7 @@ def parse_remarks(ws):
     return '；'.join(parts) if parts else ''
 
 
-def parse_launcher_from_excel(ws):
+def parse_launcher_from_excel(ws, file_path=None):
     """
     Launcher — 检索区域 A21:A24
     仅在基础 Launcher 为 OM 时调用
@@ -735,6 +847,7 @@ def parse_launcher_from_excel(ws):
         ('kairos', 'CT'),
         ('智象日历', 'WF'),
         ('frame_wf', 'WP'),
+        ('biuframe', 'CT'),
     ]
 
     for row in range(21, 25):
@@ -750,23 +863,113 @@ def parse_launcher_from_excel(ws):
             if _has_red_font(cell, keyword):
                 return launcher
 
+        # 步骤 2b: 纯文本单元格且含 □ 无 ■ → data_only 丢失了富文本格式，
+        #           尝试重新加载 Excel 以获取完整富文本信息
+        if not isinstance(cell.value, CellRichText) and file_path and '□' in str(cell.value or ''):
+            try:
+                wb2 = openpyxl.load_workbook(file_path, rich_text=True)
+                ws2 = wb2.active
+                if ws2:
+                    cell_rich = ws2[f'B{row}']
+                    if isinstance(cell_rich.value, CellRichText):
+                        for keyword, launcher in LAUNCHER_KEYWORDS:
+                            for block in cell_rich.value:
+                                # 忽略非 TextBlock 元素
+                                if not isinstance(block, TextBlock):
+                                    continue
+                                # 不区分大小写检查 block 中是否包含关键词
+                                block_lower = block.text.lower()
+                                if keyword not in block_lower:
+                                    continue
+                                # 检查独立词（不区分大小写）
+                                pattern = r'(?:^|[□\s])' + re.escape(keyword) + r'(?:[□\s]|$)'
+                                if not re.search(pattern, block_lower):
+                                    continue
+                                font = block.font
+                                if font and font.color:
+                                    try:
+                                        rgb = str(font.color.rgb) if font.color.rgb else ''
+                                    except Exception:
+                                        continue
+                                    rgb_upper = rgb.upper().replace('0X', '')
+                                    if len(rgb_upper) == 8 and rgb_upper.startswith('00'):
+                                        rgb_upper = rgb_upper[2:]
+                                    if 'FF0000' in rgb_upper:
+                                        return launcher
+                wb2.close()
+            except Exception:
+                pass
+
         # 步骤 3: ■ 后文本 → 关键词映射
         text = str(cell.value or '')
         filled_idx = text.find('■')
         if filled_idx >= 0:
             after = text[filled_idx + 1:].strip()
-            # 跳过"其它"二字
-            if after.startswith('其它'):
-                after = after[2:].strip()
+            # 循环跳过"其它/其他"以及前导冒号和空格
+            while True:
+                hit = False
+                for prefix in ['其它', '其他']:
+                    if after.startswith(prefix):
+                        after = after[len(prefix):].strip()
+                        hit = True
+                        break
+                if not hit and after.startswith('：'):
+                    after = after[1:].strip()
+                    hit = True
+                if not hit:
+                    break
             # 读取直到遇到空格或结束
             parts = after.split(' ', 1)
             val = parts[0].strip().lower()
             if val:
+                matched = False
                 for keyword, launcher in LAUNCHER_KEYWORDS:
                     if keyword in val or keyword == val:
+                        matched = True
                         return launcher
-                # 未匹配到任何关键词，不覆盖
+                # 未匹配到任何关键词：将 ■ 后文本（剔除□/■/空格）直接赋值
+                if not matched:
+                    raw = parts[0].strip().replace('□', '').replace('■', '').replace(' ', '')
+                    if raw:
+                        return raw
                 return None
+
+        # 无 ■ 时：检查是否有红色字体的文本，剔除 □/■/空格后直接赋值
+        _red_text = ''
+        if isinstance(cell.value, CellRichText):
+            for _block in cell.value:
+                if isinstance(_block, TextBlock) and _block.font and _block.font.color:
+                    try:
+                        _rgb = str(_block.font.color.rgb) if _block.font.color.rgb else ''
+                    except Exception:
+                        continue
+                    if 'FF0000' in _rgb.upper():
+                        _t = _block.text.replace('□', '').replace('■', '').replace(' ', '').strip()
+                        if _t:
+                            _red_text += _t
+        # data_only 丢失富文本时重新加载
+        if not _red_text and file_path:
+            try:
+                _wb2 = openpyxl.load_workbook(file_path, rich_text=True)
+                _ws2 = _wb2.active
+                if _ws2:
+                    _cr = _ws2[f'B{row}']
+                    if isinstance(_cr.value, CellRichText):
+                        for _block in _cr.value:
+                            if isinstance(_block, TextBlock) and _block.font and _block.font.color:
+                                try:
+                                    _rgb = str(_block.font.color.rgb) if _block.font.color.rgb else ''
+                                except Exception:
+                                    continue
+                                if 'FF0000' in _rgb.upper():
+                                    _t = _block.text.replace('□', '').replace('■', '').replace(' ', '').strip()
+                                    if _t:
+                                        _red_text += _t
+                _wb2.close()
+            except Exception:
+                pass
+        if _red_text:
+            return _red_text
 
     return None  # 不覆盖
 
@@ -801,17 +1004,17 @@ def parse_excel_config(file_path, project_name=''):
         result = {
             'model': parse_model(ws),
             'brand': parse_brand(ws),
-            'pir': parse_pir(ws),
-            'led': parse_led(ws),
-            'light_sensor': parse_light_sensor(ws, project_name),
-            'wifi': parse_wifi(ws),
+            'pir': parse_pir(ws, file_path),
+            'led': parse_led(ws, file_path),
+            'light_sensor': parse_light_sensor(ws, project_name, file_path),
+            'wifi': parse_wifi(ws, file_path),
             'screen_size': parse_screen_size(ws),
             'screen_model': '',
             'tp': parse_tp(ws),
             'shell': parse_shell(ws, file_path),
             'project_establish_date': parse_date(ws),
             'remarks': parse_remarks(ws),
-            'launcher': parse_launcher_from_excel(ws),
+            'launcher': parse_launcher_from_excel(ws, file_path),
         }
         # screen_model 依赖 screen_size
         result['screen_model'] = parse_screen_model(ws, result['screen_size'])

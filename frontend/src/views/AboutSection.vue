@@ -17,22 +17,22 @@
             <div class="about-card-border"></div>
             <div class="about-card-inner">
               <p class="about-paragraph">
-                WhaleFramely日历
+                WhaleFramely_v2.1.1日历
               </p>
               <p class="about-paragraph about-paragraph-tight">
-                链接：<a href="https://pan.baidu.com/s/1dnYZO6tR-KyxvIydgmNuQQ?pwd=ez79" target="_blank" rel="noopener" style="color: #C9A96E; text-decoration: underline;">https://pan.baidu.com/s/1dnYZO6tR-KyxvIydgmNuQQ?pwd=ez79</a>
+                链接：<a href="https://pan.baidu.com/s/1xMghj1Cl6uqdUUs9jmynlA?pwd=3df8" target="_blank" rel="noopener" style="color: #C9A96E; text-decoration: underline;">https://pan.baidu.com/s/1xMghj1Cl6uqdUUs9jmynlA?pwd=3df8</a>
               </p>
               <p class="about-paragraph">
-                WhalePhoto相框
+                WhalePhoto_v2.1.x相框
               </p>
               <p class="about-paragraph about-paragraph-tight">
-                链接：<a href="https://pan.baidu.com/s/12NMfJoYOj8suMlbdkWSQsw?pwd=p7kh" target="_blank" rel="noopener" style="color: #C9A96E; text-decoration: underline;">https://pan.baidu.com/s/12NMfJoYOj8suMlbdkWSQsw?pwd=p7kh</a>
+                链接：<a href="https://pan.baidu.com/s/1L5yVsIbJcpnaXg09SgEAPw?pwd=88kn" target="_blank" rel="noopener" style="color: #C9A96E; text-decoration: underline;">https://pan.baidu.com/s/1L5yVsIbJcpnaXg09SgEAPw?pwd=88kn</a>
               </p>
               <p class="about-paragraph">
-                Uhale相框
+                Uhale_v5.1.x相框
               </p>
               <p class="about-paragraph about-paragraph-tight">
-                链接：<a href="https://pan.baidu.com/s/1_v2u0aT3P0soecRBtwu4MA?pwd=u2r2" target="_blank" rel="noopener" style="color: #C9A96E; text-decoration: underline;">https://pan.baidu.com/s/1_v2u0aT3P0soecRBtwu4MA?pwd=u2r2</a>
+                链接：<a href="https://pan.baidu.com/s/1i866rgS_JdjVErPaEcuh6w?pwd=8jh6" target="_blank" rel="noopener" style="color: #C9A96E; text-decoration: underline;">https://pan.baidu.com/s/1i866rgS_JdjVErPaEcuh6w?pwd=8jh6</a>
               </p>
             </div>
           </div>

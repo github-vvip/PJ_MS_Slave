@@ -159,6 +159,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 | Q(hardware_version__icontains=search)
                 | Q(brand__icontains=search)
                 | Q(model__icontains=search)
+                | Q(android_version__icontains=search)
+                | Q(launcher__icontains=search)
+                | Q(light_sensor__icontains=search)
+                | Q(wifi__icontains=search)
+                | Q(screen_size__icontains=search)
+                | Q(screen_model__icontains=search)
+                | Q(tp__icontains=search)
+                | Q(shell__icontains=search)
+                | Q(remarks__icontains=search)
+                | Q(customer__name__icontains=search)
             )
         if hardware_version:
             hv_list = hardware_version.split(',')
@@ -382,6 +392,7 @@ ANDROID_VERSION_MAP = {
 # Launcher 推导规则（项目名称关键词 → Launcher 值）
 LAUNCHER_RULES = [
     ('-wf', 'WF'),
+    ('-wp', 'WP'),
     ('-fm', 'FM'),
     ('-uh', 'UH'),
     ('photo', 'WP'),
@@ -789,6 +800,9 @@ def _find_excel_file(directory):
     matched_files = []
     try:
         for f in os.listdir(directory):
+            # 跳过以 ~$ 开头的临时文件
+            if f.startswith('~$'):
+                continue
             # 用 os.path.splitext 精确取扩展名，避免 endswith 边缘情况
             base_name, ext = os.path.splitext(f)
             ext_lower = ext.lower()

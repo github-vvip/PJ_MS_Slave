@@ -11,7 +11,7 @@
           <input
             v-model="searchText"
             type="text"
-            placeholder="搜索项目名称 / 厂商 / 型号"
+            placeholder="搜索关键字"
             class="search-input"
             @keyup.enter="loadProjects"
           />
@@ -49,7 +49,7 @@
           :key="c.id"
           class="customer-card scroll-reveal"
           :class="{ active: currentCustomerId === c.id }"
-          :style="{ '--reveal-delay': idx * 60 + 'ms' }"
+          :style="{ '--reveal-delay': Math.min(idx * 60, 300) + 'ms' }"
           @click="selectCustomer(c.id)"
           @contextmenu.prevent="showContextMenu($event, c)"
         >
@@ -70,7 +70,7 @@
             <span class="card-number">{{ c.project_count }}</span>
           </div>
         </div>
-        <div class="customer-card card-add scroll-reveal" :style="{ '--reveal-delay': customers.length * 60 + 'ms' }" @click="handleAddCustomer">
+        <div class="customer-card card-add scroll-reveal" :style="{ '--reveal-delay': Math.min(customers.length * 60, 300) + 'ms' }" @click="handleAddCustomer">
           <div class="card-icon card-icon-add">
             <el-icon :size="20"><Plus /></el-icon>
           </div>
