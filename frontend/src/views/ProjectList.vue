@@ -558,8 +558,33 @@ const uniqueAndroidVersions = computed(() => {
   return [...new Set(filterOptions.value.android_versions.filter(Boolean))]
 })
 
-const uniqueScreenSizes = computed(() => {
-  return [...new Set(filterOptions.value.screen_sizes.filter(Boolean))]
+// 归一化：尺寸+分辨率，分辨率按大*小排序，使长宽写反的视为同一项
+const normalizeScreenSize = (s) => {
+  const m = s.match(/^([\d.]+)\s*[寸吋]\s*(\d+)\s*[\*×xX]\s*(\d+)/)
+  if (!m) return { key: s, display: s, sortKey: Infinity }
+  const size = m[1]
+  let w = parseInt(m[2])
+  let h = parseInt(m[3])
+  if (w < h) [w, h] = [h, w]
+  return { key: `${size}|${w}*${h}`, display: `${size}寸${w}*${h}`, sortKey: parseFloat(size) }
+}
+
+const screenSizeGroups = computed(() => {
+  const map = new Map()
+  filterOptions.value.screen_sizes.filter(Boolean).forEach(s => {
+    const { key, display, sortKey } = normalizeScreenSize(s)
+    if (!map.has(key)) map.set(key, { display, sortKey, originals: [] })
+    map.get(key).originals.push(s)
+  })
+  return [...map.values()].sort((a, b) => a.sortKey - b.sortKey)
+})
+
+const uniqueScreenSizes = computed(() => screenSizeGroups.value.map(g => g.display))
+
+const screenSizeOriginalsMap = computed(() => {
+  const m = new Map()
+  screenSizeGroups.value.forEach(g => m.set(g.display, g.originals))
+  return m
 })
 
 const uniqueTPs = computed(() => {
@@ -603,7 +628,10 @@ const loadProjects = async () => {
     if (searchText.value) params.search = searchText.value
     if (filterHardware.value.length > 0) params.hardware_version = filterHardware.value.join(',')
     if (filterAndroid.value.length > 0) params.android_version = filterAndroid.value.join(',')
-    if (filterScreenSize.value.length > 0) params.screen_size = filterScreenSize.value.join(',')
+    if (filterScreenSize.value.length > 0) {
+      const expanded = filterScreenSize.value.flatMap(d => screenSizeOriginalsMap.value.get(d) || [d])
+      params.screen_size = expanded.join(',')
+    }
     if (filterTP.value.length > 0) params.tp = filterTP.value.join(',')
     projectList.value = await getProjects(params)
   } catch (e) {
