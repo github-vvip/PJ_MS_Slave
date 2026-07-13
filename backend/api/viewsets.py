@@ -154,22 +154,26 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if customer_id:
             queryset = queryset.filter(customer_id=customer_id)
         if search:
-            queryset = queryset.filter(
-                Q(project_name__icontains=search)
-                | Q(hardware_version__icontains=search)
-                | Q(brand__icontains=search)
-                | Q(model__icontains=search)
-                | Q(android_version__icontains=search)
-                | Q(launcher__icontains=search)
-                | Q(light_sensor__icontains=search)
-                | Q(wifi__icontains=search)
-                | Q(screen_size__icontains=search)
-                | Q(screen_model__icontains=search)
-                | Q(tp__icontains=search)
-                | Q(shell__icontains=search)
-                | Q(remarks__icontains=search)
-                | Q(customer__name__icontains=search)
-            )
+            keywords = [k.strip() for k in re.split(r'[,，]', search) if k.strip()]
+            q = Q()
+            for kw in keywords:
+                q |= (
+                    Q(project_name__icontains=kw)
+                    | Q(hardware_version__icontains=kw)
+                    | Q(brand__icontains=kw)
+                    | Q(model__icontains=kw)
+                    | Q(android_version__icontains=kw)
+                    | Q(launcher__icontains=kw)
+                    | Q(light_sensor__icontains=kw)
+                    | Q(wifi__icontains=kw)
+                    | Q(screen_size__icontains=kw)
+                    | Q(screen_model__icontains=kw)
+                    | Q(tp__icontains=kw)
+                    | Q(shell__icontains=kw)
+                    | Q(remarks__icontains=kw)
+                    | Q(customer__name__icontains=kw)
+                )
+            queryset = queryset.filter(q)
         if hardware_version:
             hv_list = hardware_version.split(',')
             queryset = queryset.filter(hardware_version__in=hv_list)

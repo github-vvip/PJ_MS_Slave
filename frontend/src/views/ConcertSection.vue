@@ -264,6 +264,8 @@ onUnmounted(() => {
   background: #ffffff;
   padding: 0 24px 80px;
   margin-top: -100px;
+  position: relative;
+  z-index: 10;
 }
 
 .concert-inner {

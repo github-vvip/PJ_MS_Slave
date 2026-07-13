@@ -272,9 +272,17 @@ onMounted(async () => {
 .requirement-summary {
   max-width: 100%;
   overflow-x: hidden;
+  background:
+    radial-gradient(ellipse 800px 600px at 15% 20%, oklch(96% 0.005 250 / 0.6), transparent 60%),
+    radial-gradient(ellipse 700px 500px at 85% 15%, oklch(90% 0.06 200 / 0.5), transparent 55%),
+    radial-gradient(ellipse 600px 400px at 10% 80%, oklch(94% 0.05 85 / 0.4), transparent 50%),
+    radial-gradient(ellipse 500px 500px at 90% 85%, oklch(93% 0.04 280 / 0.3), transparent 55%),
+    radial-gradient(circle 400px at 50% 50%, oklch(96% 0.04 165 / 0.3), transparent 70%),
+    oklch(98% 0.01 165);
+  background-attachment: fixed;
 }
 .requirement-body {
-  max-width: 1200px;
+  max-width: 1480px;
   margin: 0 auto;
   padding: 48px 24px 24px;
 }
@@ -296,18 +304,27 @@ onMounted(async () => {
   font-weight: 700;
   font-family: 'Noto Serif SC', 'SimSun', 'STSong', serif;
   letter-spacing: 0.04em;
-  background: linear-gradient(135deg, #7D9B6D 0%, #9CAF88 40%, #B5C9A8 80%, #9CAF88 100%);
+  background: linear-gradient(135deg, oklch(72% 0.15 165) 0%, oklch(92% 0.08 165) 35%, oklch(82% 0.12 165) 70%, oklch(92% 0.08 165) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  filter: drop-shadow(0 2px 6px rgba(125, 155, 109, 0.2));
+  filter: drop-shadow(0 2px 8px oklch(72% 0.15 165 / 0.25));
   position: relative;
+}
+.page-title::before {
+  content: '';
+  position: absolute;
+  inset: -20px -40px;
+  background: radial-gradient(ellipse, oklch(92% 0.08 165 / 0.3), transparent 70%);
+  z-index: -1;
+  filter: blur(20px);
+  pointer-events: none;
 }
 .page-title::after {
   content: 'Android';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,0.45) 0%, transparent 50%, rgba(255,255,255,0.15) 100%);
+  background: linear-gradient(135deg, rgba(255,255,255,0.65) 0%, transparent 50%, rgba(255,255,255,0.2) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -334,32 +351,48 @@ onMounted(async () => {
   gap: 6px;
   padding: 7px 16px;
   border-radius: 12px;
-  background: rgba(255, 253, 249, 0.8);
-  border: 1px solid rgba(181, 201, 168, 0.25);
+  background: oklch(99% 0.005 165 / 0.6);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid oklch(100% 0 0 / 0.45);
   cursor: pointer;
   transition: all 0.25s ease;
   font-size: 13px;
-  color: #6B7B6C;
-  box-shadow: 0 1px 3px rgba(156, 175, 136, 0.06);
+  color: oklch(50% 0.04 165);
+  box-shadow: 0 1px 3px oklch(72% 0.15 165 / 0.06), inset 0 1px 0 oklch(100% 0 0 / 0.5);
+  position: relative;
+  overflow: hidden;
+}
+.module-tab::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, oklch(100% 0 0 / 0.8), transparent);
+  pointer-events: none;
 }
 .module-tab:hover {
-  border-color: rgba(125, 155, 109, 0.4);
-  background: rgba(255, 253, 249, 0.95);
-  color: #4A5E4B;
-  box-shadow: 0 2px 8px rgba(125, 155, 109, 0.1);
+  border-color: oklch(72% 0.15 165 / 0.35);
+  background: oklch(99% 0.005 165 / 0.8);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  color: oklch(35% 0.03 165);
+  box-shadow: 0 4px 12px oklch(72% 0.15 165 / 0.1), inset 0 1px 0 oklch(100% 0 0 / 0.6);
 }
 .module-tab.active {
-  background: rgba(91, 141, 239, 0.08);
-  border-color: rgba(91, 141, 239, 0.25);
-  color: #4A7AE6;
-  box-shadow: 0 1px 4px rgba(91, 141, 239, 0.06);
+  background: oklch(72% 0.15 165 / 0.12);
+  border-color: oklch(72% 0.15 165 / 0.4);
+  color: oklch(55% 0.12 165);
+  box-shadow: 0 2px 8px oklch(72% 0.15 165 / 0.12), inset 0 1px 0 oklch(100% 0 0 / 0.5), inset 0 -1px 0 oklch(72% 0.15 165 / 0.08);
 }
 .module-tab.active .module-tab-close {
-  color: rgba(74, 122, 230, 0.6);
+  color: oklch(55% 0.12 165 / 0.6);
 }
 .module-tab-close {
-  font-size: 12px;
-  color: #B5C0A8;
+  font-size: 14px;
+  color: oklch(70% 0.02 165);
   transition: color 0.15s;
   cursor: pointer;
 }
@@ -372,16 +405,35 @@ onMounted(async () => {
   gap: 24px;
 }
 .task-section {
-  background: #FDFCF8;
+  position: relative;
+  background: oklch(99% 0.005 165 / 0.55);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-radius: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid oklch(100% 0 0 / 0.5);
   padding: 20px 24px;
-  transition: box-shadow 0.25s ease, border-color 0.25s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  box-shadow: 0 4px 16px oklch(72% 0.15 165 / 0.08), 0 1px 3px oklch(0% 0 0 / 0.04), inset 0 1px 0 oklch(100% 0 0 / 0.6), inset 0 -1px 0 oklch(72% 0.15 165 / 0.06);
+  overflow: hidden;
+}
+.task-section::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.4 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.35;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  z-index: 0;
+}
+.task-section > * {
+  position: relative;
+  z-index: 1;
 }
 .task-section:hover {
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.06);
-  border-color: rgba(0, 0, 0, 0.1);
+  border-color: oklch(100% 0 0 / 0.65);
+  box-shadow: 0 8px 24px oklch(72% 0.15 165 / 0.12), 0 2px 6px oklch(0% 0 0 / 0.05), inset 0 1px 0 oklch(100% 0 0 / 0.7), inset 0 -1px 0 oklch(72% 0.15 165 / 0.08);
 }
 .section-header {
   margin-bottom: 18px;
@@ -398,14 +450,16 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 .today-dot {
-  background: #7D9B6D;
+  background: radial-gradient(circle at 30% 30%, #A8E6D9, #5BBA8A 70%);
+  box-shadow: 0 0 8px rgba(91, 186, 138, 0.4), 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 .todo-dot {
-  background: #C2A86A;
+  background: radial-gradient(circle at 30% 30%, #E0D4A8, #C2A86A 70%);
+  box-shadow: 0 0 8px rgba(194, 168, 106, 0.4), 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 .section-title {
   margin: 0;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: #3D4A3E;
   letter-spacing: 0.02em;
@@ -419,7 +473,7 @@ onMounted(async () => {
   padding: 0 6px;
   border-radius: 10px;
   background: rgba(0, 0, 0, 0.04);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   color: #666;
 }

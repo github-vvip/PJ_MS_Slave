@@ -281,23 +281,23 @@ defineExpose({ loadTasks, taskList })
 .task-order {
   color: #bbb;
   font-weight: 500;
-  font-size: 12px;
+  font-size: 14px;
   min-width: 20px;
   text-align: right;
 }
 .task-content {
   flex: 1;
   word-break: break-all;
-  font-size: 14px;
-  color: #333;
+  font-size: 16px;
+  color: #1a1a1a;
 }
 .line-through {
   text-decoration: line-through;
   color: #aaa;
 }
 .task-remarks {
-  font-size: 12px;
-  color: #999;
+  font-size: 14px;
+  color: #888;
   max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -310,7 +310,7 @@ defineExpose({ loadTasks, taskList })
   border-radius: 6px;
   background: rgba(194, 168, 106, 0.1);
   color: #8A7A5A;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
 }
 .task-actions {
@@ -329,6 +329,6 @@ defineExpose({ loadTasks, taskList })
   text-align: center;
   padding: 32px 0;
   color: #bbb;
-  font-size: 13px;
+  font-size: 15px;
 }
 </style>

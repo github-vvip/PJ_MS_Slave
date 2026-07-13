@@ -11,7 +11,7 @@
           <input
             v-model="searchText"
             type="text"
-            placeholder="搜索关键字"
+            placeholder="搜索关键字（多个用逗号分隔）"
             class="search-input"
             @keyup.enter="loadProjects"
           />
@@ -23,18 +23,94 @@
         </button>
       </div>
       <div class="filter-row">
-        <el-select v-model="filterHardware" placeholder="硬件版型" clearable multiple collapse-tags class="filter-select" size="small" @change="loadProjects">
-          <el-option v-for="v in uniqueHardwareVersions" :key="v" :label="v" :value="v" />
-        </el-select>
-        <el-select v-model="filterAndroid" placeholder="Android版本" clearable multiple collapse-tags class="filter-select" size="small" @change="loadProjects">
-          <el-option v-for="v in uniqueAndroidVersions" :key="v" :label="v" :value="v" />
-        </el-select>
-        <el-select v-model="filterScreenSize" placeholder="屏幕尺寸" clearable multiple collapse-tags class="filter-select filter-select-multi" size="small" @change="loadProjects">
-          <el-option v-for="v in uniqueScreenSizes" :key="v" :label="v" :value="v" />
-        </el-select>
-        <el-select v-model="filterTP" placeholder="TP" clearable multiple collapse-tags class="filter-select filter-select-multi" size="small" @change="loadProjects">
-          <el-option v-for="v in uniqueTPs" :key="v" :label="v" :value="v" />
-        </el-select>
+        <div class="filter-group">
+          <div class="filter-dropdown" ref="dropdownHardwareRef">
+            <div class="filter-dropdown-trigger" @click.stop="toggleHardware = !toggleHardware">
+              <template v-if="filterHardware.length === 0">
+                <span class="filter-placeholder">硬件版型</span>
+              </template>
+              <template v-else>
+                <el-tag v-for="v in filterHardware" :key="v" closable size="small" class="filter-tag" @close.stop="removeHardware(v)">{{ v }}</el-tag>
+              </template>
+              <el-icon class="filter-arrow"><ArrowDown /></el-icon>
+            </div>
+            <Transition name="drop">
+              <div v-if="toggleHardware" class="filter-dropdown-panel" @mousedown.stop>
+                <label v-for="v in uniqueHardwareVersions" :key="v" class="filter-option">
+                  <el-checkbox :model-value="filterHardware.includes(v)" size="small" @change="toggleHardwareItem(v)" />
+                  <span class="filter-option-label">{{ v }}</span>
+                </label>
+                <div v-if="uniqueHardwareVersions.length === 0" class="filter-empty">无选项</div>
+              </div>
+            </Transition>
+          </div>
+        </div>
+        <div class="filter-group">
+          <div class="filter-dropdown" ref="dropdownAndroidRef">
+            <div class="filter-dropdown-trigger" @click.stop="toggleAndroid = !toggleAndroid">
+              <template v-if="filterAndroid.length === 0">
+                <span class="filter-placeholder">Android版本</span>
+              </template>
+              <template v-else>
+                <el-tag v-for="v in filterAndroid" :key="v" closable size="small" class="filter-tag" @close.stop="removeAndroid(v)">{{ v }}</el-tag>
+              </template>
+              <el-icon class="filter-arrow"><ArrowDown /></el-icon>
+            </div>
+            <Transition name="drop">
+              <div v-if="toggleAndroid" class="filter-dropdown-panel" @mousedown.stop>
+              <label v-for="v in uniqueAndroidVersions" :key="v" class="filter-option">
+                <el-checkbox :model-value="filterAndroid.includes(v)" size="small" @change="toggleAndroidItem(v)" />
+                <span class="filter-option-label">{{ v }}</span>
+              </label>
+              <div v-if="uniqueAndroidVersions.length === 0" class="filter-empty">无选项</div>
+            </div>
+            </Transition>
+          </div>
+        </div>
+        <div class="filter-group">
+          <div class="filter-dropdown" ref="dropdownScreenRef">
+            <div class="filter-dropdown-trigger" @click.stop="toggleScreenSize = !toggleScreenSize">
+              <template v-if="filterScreenSize.length === 0">
+                <span class="filter-placeholder">屏幕尺寸</span>
+              </template>
+              <template v-else>
+                <el-tag v-for="v in filterScreenSize" :key="v" closable size="small" class="filter-tag" @close.stop="removeScreenSize(v)">{{ v }}</el-tag>
+              </template>
+              <el-icon class="filter-arrow"><ArrowDown /></el-icon>
+            </div>
+            <Transition name="drop">
+              <div v-if="toggleScreenSize" class="filter-dropdown-panel" @mousedown.stop>
+              <label v-for="v in uniqueScreenSizes" :key="v" class="filter-option">
+                <el-checkbox :model-value="filterScreenSize.includes(v)" size="small" @change="toggleScreenSizeItem(v)" />
+                <span class="filter-option-label">{{ v }}</span>
+              </label>
+              <div v-if="uniqueScreenSizes.length === 0" class="filter-empty">无选项</div>
+            </div>
+            </Transition>
+          </div>
+        </div>
+        <div class="filter-group">
+          <div class="filter-dropdown" ref="dropdownTPRef">
+            <div class="filter-dropdown-trigger" @click.stop="toggleTP = !toggleTP">
+              <template v-if="filterTP.length === 0">
+                <span class="filter-placeholder">TP</span>
+              </template>
+              <template v-else>
+                <el-tag v-for="v in filterTP" :key="v" closable size="small" class="filter-tag" @close.stop="removeTP(v)">{{ v }}</el-tag>
+              </template>
+              <el-icon class="filter-arrow"><ArrowDown /></el-icon>
+            </div>
+            <Transition name="drop">
+              <div v-if="toggleTP" class="filter-dropdown-panel" @mousedown.stop>
+              <label v-for="v in uniqueTPs" :key="v" class="filter-option">
+                <el-checkbox :model-value="filterTP.includes(v)" size="small" @change="toggleTPItem(v)" />
+                <span class="filter-option-label">{{ v }}</span>
+              </label>
+              <div v-if="uniqueTPs.length === 0" class="filter-empty">无选项</div>
+            </div>
+            </Transition>
+          </div>
+        </div>
         <button class="reset-btn" v-ripple @click="resetFilters">
           <el-icon class="reset-icon"><RefreshLeft /></el-icon>
           <span>重置</span>
@@ -422,7 +498,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, nextTick, onBeforeUnmount, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Download, Upload, Search, Setting, Check, RefreshLeft } from '@element-plus/icons-vue'
+import { Plus, Download, Upload, Search, Setting, Check, RefreshLeft, ArrowDown } from '@element-plus/icons-vue'
 import {
   getCustomers, createCustomer, updateCustomer, deleteCustomer,
   getProjects, deleteProject, getProjectFilterOptions, batchImportProjects,
@@ -508,6 +584,14 @@ const filterHardware = ref([])
 const filterAndroid = ref([])
 const filterScreenSize = ref([])
 const filterTP = ref([])
+const toggleHardware = ref(false)
+const toggleAndroid = ref(false)
+const toggleScreenSize = ref(false)
+const toggleTP = ref(false)
+const dropdownHardwareRef = ref()
+const dropdownAndroidRef = ref()
+const dropdownScreenRef = ref()
+const dropdownTPRef = ref()
 const currentPage = ref(1)
 const pageSize = ref(15)
 const showForm = ref(false)
@@ -590,6 +674,54 @@ const screenSizeOriginalsMap = computed(() => {
 const uniqueTPs = computed(() => {
   return [...new Set(filterOptions.value.tps.filter(Boolean))]
 })
+
+const doFilter = () => {
+  currentPage.value = 1
+  loadProjects()
+}
+
+const toggleHardwareItem = (v) => {
+  const idx = filterHardware.value.indexOf(v)
+  if (idx >= 0) filterHardware.value.splice(idx, 1)
+  else filterHardware.value.push(v)
+  doFilter()
+}
+const removeHardware = (v) => { filterHardware.value = filterHardware.value.filter(x => x !== v); doFilter() }
+
+const toggleAndroidItem = (v) => {
+  const idx = filterAndroid.value.indexOf(v)
+  if (idx >= 0) filterAndroid.value.splice(idx, 1)
+  else filterAndroid.value.push(v)
+  doFilter()
+}
+const removeAndroid = (v) => { filterAndroid.value = filterAndroid.value.filter(x => x !== v); doFilter() }
+
+const toggleScreenSizeItem = (v) => {
+  const idx = filterScreenSize.value.indexOf(v)
+  if (idx >= 0) filterScreenSize.value.splice(idx, 1)
+  else filterScreenSize.value.push(v)
+  doFilter()
+}
+const removeScreenSize = (v) => { filterScreenSize.value = filterScreenSize.value.filter(x => x !== v); doFilter() }
+
+const toggleTPItem = (v) => {
+  const idx = filterTP.value.indexOf(v)
+  if (idx >= 0) filterTP.value.splice(idx, 1)
+  else filterTP.value.push(v)
+  doFilter()
+}
+const removeTP = (v) => { filterTP.value = filterTP.value.filter(x => x !== v); doFilter() }
+
+const closeDropdowns = (e) => {
+  const dropdowns = [dropdownHardwareRef.value, dropdownAndroidRef.value, dropdownScreenRef.value, dropdownTPRef.value]
+  const isInside = dropdowns.some(el => el && el.contains(e.target))
+  if (!isInside) {
+    toggleHardware.value = false
+    toggleAndroid.value = false
+    toggleScreenSize.value = false
+    toggleTP.value = false
+  }
+}
 
 const onTabsWheel = (e) => {
   if (!tabsRef.value) return
@@ -1159,6 +1291,7 @@ onMounted(async () => {
   await loadProjects()
   await loadFilterOptions()
   document.addEventListener('click', hideContextMenu)
+  document.addEventListener('click', closeDropdowns)
 
   const observer = new IntersectionObserver(
     (entries) => {
@@ -1179,10 +1312,9 @@ onMounted(async () => {
       observer.observe(el)
     })
   })
-  revealObserver.observe(document.querySelector('.project-page'), {
-    childList: true,
-    subtree: true,
-  })
+  // 只监听直接子节点的增删，避免子树内 el-table/el-select 的频繁变化导致高频回调
+  revealObserver.observe(document.querySelector('.customer-cards'), { childList: true })
+  revealObserver.observe(document.querySelector('.project-page'), { childList: true })
 })
 
 /* ===== 配置雷达 - 检索 ===== */
@@ -1286,13 +1418,17 @@ const handleSync = async () => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', hideContextMenu)
+  document.removeEventListener('click', closeDropdowns)
 })
 </script>
 
 <style scoped>
 .project-page {
   height: 100%;
-  max-width: 1400px;
+  max-width: 1680px;
+  margin: 0 auto;
+  padding: 0 24px;
+  box-sizing: border-box;
 }
 .page-header {
   margin-bottom: 20px;
@@ -1413,60 +1549,123 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
 }
 
-.filter-select {
-  width: 100px;
+.filter-group {
+  position: relative;
 }
 
-.filter-select-screen {
-  width: 130px;
+.filter-dropdown {
+  position: relative;
+  outline: none;
+  cursor: pointer;
+  user-select: none;
 }
 
-.filter-select-multi {
-  width: 130px;
-}
-
-.filter-select :deep(.el-input__wrapper) {
-  border-radius: 4px;
-  border: 1px solid #E0E0E0;
-  box-shadow: none !important;
+.filter-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 90px;
+  max-width: 130px;
   height: 28px;
-}
-
-.filter-select :deep(.el-input__wrapper:hover) {
-  border-color: #3385FF;
-}
-
-.filter-select :deep(.el-input__wrapper.is-focus) {
-  border-color: #3385FF;
-  box-shadow: 0 0 0 1px #3385FF inset !important;
-}
-
-.filter-select :deep(.el-input__inner) {
+  padding: 0 8px;
+  border: 1px solid #E0E0E0;
+  border-radius: 4px;
+  background: #fff;
   font-size: 12px;
-  height: 26px;
-  line-height: 26px;
+  color: #333;
+  transition: border-color 0.15s;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
-.filter-select :deep(.el-select__tags) {
-  max-height: 24px;
+.filter-dropdown-trigger:hover {
+  border-color: #3385FF;
 }
 
-.filter-select :deep(.el-tag) {
+.filter-dropdown-trigger:focus-within,
+.filter-dropdown-trigger.is-active {
+  border-color: #3385FF;
+  box-shadow: 0 0 0 1px #3385FF inset;
+}
+
+.filter-placeholder {
+  color: #C0C4CC;
+  font-size: 12px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-arrow {
+  font-size: 12px;
+  color: #C0C4CC;
+  flex-shrink: 0;
+}
+
+.filter-tag {
   max-height: 18px;
   font-size: 11px;
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.filter-select :deep(.el-select__placeholder) {
-  font-size: 12px;
+.filter-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 2000;
+  min-width: 140px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #E4E7ED;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+  padding: 4px 0;
 }
 
-.filter-select :deep(.el-input__suffix) {
-  font-size: 12px;
+.filter-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+  white-space: nowrap;
 }
 
-.filter-select :deep(.el-select__icon) {
+.filter-option:hover {
+  background: #F5F7FA;
+}
+
+.filter-option-label {
   font-size: 12px;
-  width: 14px;
+  color: #333;
+}
+
+.filter-empty {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #C0C4CC;
+  text-align: center;
+}
+
+/* 下拉面板入场动画 */
+.drop-enter-active {
+  transition: all 0.2s ease-out;
+}
+.drop-leave-active {
+  transition: all 0.15s ease-in;
+}
+.drop-enter-from {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+.drop-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 
 .reset-btn {

@@ -17,10 +17,10 @@
             <div class="about-card-border"></div>
             <div class="about-card-inner">
               <p class="about-paragraph">
-                WhaleFramely_v2.1.1日历
+                WhaleFramely_v2.2.x日历
               </p>
               <p class="about-paragraph about-paragraph-tight">
-                链接：<a href="https://pan.baidu.com/s/1xMghj1Cl6uqdUUs9jmynlA?pwd=3df8" target="_blank" rel="noopener" style="color: #C9A96E; text-decoration: underline;">https://pan.baidu.com/s/1xMghj1Cl6uqdUUs9jmynlA?pwd=3df8</a>
+                链接：<a href="https://pan.baidu.com/s/1Gyepg3oMWJZ0PKvqAh27Mg?pwd=s6th" target="_blank" rel="noopener" style="color: #C9A96E; text-decoration: underline;">https://pan.baidu.com/s/1Gyepg3oMWJZ0PKvqAh27Mg?pwd=s6th</a>
               </p>
               <p class="about-paragraph">
                 WhalePhoto_v2.1.x相框

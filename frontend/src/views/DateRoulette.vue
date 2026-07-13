@@ -219,6 +219,7 @@ const onTouchMove = (e) => {
   position: relative;
   overflow: hidden;
   margin-top: 0;
+  background: #ffffff;
 }
 
 .date-roulette-inner {
