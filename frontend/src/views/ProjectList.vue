@@ -1571,7 +1571,7 @@ onBeforeUnmount(() => {
   border: 1px solid #E0E0E0;
   border-radius: 4px;
   background: #fff;
-  font-size: 12px;
+  font-size: 13px;
   color: #333;
   transition: border-color 0.15s;
   overflow: hidden;
@@ -1590,7 +1590,7 @@ onBeforeUnmount(() => {
 
 .filter-placeholder {
   color: #C0C4CC;
-  font-size: 12px;
+  font-size: 13px;
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1598,14 +1598,14 @@ onBeforeUnmount(() => {
 }
 
 .filter-arrow {
-  font-size: 12px;
+  font-size: 13px;
   color: #C0C4CC;
   flex-shrink: 0;
 }
 
 .filter-tag {
   max-height: 18px;
-  font-size: 11px;
+  font-size: 13px;
   max-width: 60px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1641,13 +1641,13 @@ onBeforeUnmount(() => {
 }
 
 .filter-option-label {
-  font-size: 12px;
+  font-size: 13px;
   color: #333;
 }
 
 .filter-empty {
   padding: 8px 12px;
-  font-size: 12px;
+  font-size: 13px;
   color: #C0C4CC;
   text-align: center;
 }
@@ -1679,7 +1679,7 @@ onBeforeUnmount(() => {
   color: #FF4D4F;
   border: 1px solid #E0E0E0;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -1690,7 +1690,7 @@ onBeforeUnmount(() => {
 }
 
 .reset-icon {
-  font-size: 12px;
+  font-size: 13px;
 }
 .customer-cards-wrapper {
   margin-bottom: 20px;
@@ -1773,7 +1773,7 @@ onBeforeUnmount(() => {
   line-height: 1.2;
 }
 .card-number {
-  font-size: 12px;
+  font-size: 13px;
   color: #94A3B8;
 }
 .card-add {
@@ -1817,7 +1817,7 @@ onBeforeUnmount(() => {
   padding: 4px 0;
 }
 .column-settings-tip {
-  font-size: 12px;
+  font-size: 13px;
   color: #94A3B8;
   margin-bottom: 16px;
 }
@@ -1836,7 +1836,7 @@ onBeforeUnmount(() => {
   background: #F8FAFC;
   cursor: pointer;
   transition: all 0.15s ease;
-  font-size: 13px;
+  font-size: 14px;
   color: #64748B;
   user-select: none;
 }
@@ -1850,7 +1850,7 @@ onBeforeUnmount(() => {
   color: #FFFFFF;
 }
 .chip-check {
-  font-size: 12px;
+  font-size: 13px;
 }
 .context-menu {
   position: fixed;
@@ -1863,7 +1863,7 @@ onBeforeUnmount(() => {
 }
 .context-menu-item {
   padding: 8px 16px;
-  font-size: 13px;
+  font-size: 14px;
   color: #334155;
   cursor: pointer;
   border-radius: 4px;
@@ -1953,7 +1953,7 @@ onBeforeUnmount(() => {
 }
 .import-unmatched {
   color: #F59E0B;
-  font-size: 12px;
+  font-size: 13px;
 }
 .import-preview-table-wrapper {
   border-radius: 8px;
@@ -1961,7 +1961,7 @@ onBeforeUnmount(() => {
 }
 .import-preview-more {
   text-align: center;
-  font-size: 12px;
+  font-size: 13px;
   color: #94A3B8;
   padding: 8px 0;
 }
@@ -1991,7 +1991,7 @@ onBeforeUnmount(() => {
 .import-result-errors ul {
   margin: 0;
   padding-left: 20px;
-  font-size: 12px;
+  font-size: 13px;
   color: #64748B;
 }
 .import-result-errors li {
@@ -2016,7 +2016,7 @@ onBeforeUnmount(() => {
 
 .unmatched-tag {
   margin-left: 4px;
-  font-size: 10px;
+  font-size: 12px;
   height: 16px;
   line-height: 16px;
   padding: 0 4px;
@@ -2045,7 +2045,7 @@ onBeforeUnmount(() => {
 .concert-subtitle {
   margin: 0;
   font-family: 'Noto Sans SC', -apple-system, sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 300;
   color: #C9A96E;
   letter-spacing: 0.35em;
@@ -2114,7 +2114,7 @@ onBeforeUnmount(() => {
 }
 .concert-result-count {
   text-align: right;
-  font-size: 13px;
+  font-size: 14px;
   color: #999;
   margin-top: 12px;
   padding-right: 8px;
@@ -2194,7 +2194,7 @@ onBeforeUnmount(() => {
   border: 1px solid #f0f0f0;
   border-radius: 8px;
   padding: 16px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.8;
 }
 .sync-log-placeholder {
@@ -2233,18 +2233,18 @@ onBeforeUnmount(() => {
 .sync-summary-divider {
   text-align: center;
   color: #C9A96E;
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.2em;
   margin-bottom: 8px;
 }
 .sync-summary-item {
-  font-size: 13px;
+  font-size: 14px;
   color: #333;
   line-height: 2;
 }
 .sync-summary-sub {
   display: block;
-  font-size: 12px;
+  font-size: 13px;
   color: #888;
   padding-left: 16px;
   line-height: 1.8;
@@ -2255,7 +2255,7 @@ onBeforeUnmount(() => {
   margin-top: 8px;
   background: #fff2f0;
   border-radius: 4px;
-  font-size: 13px;
+  font-size: 14px;
 }
 @keyframes sync-fadeInDown {
   from {
