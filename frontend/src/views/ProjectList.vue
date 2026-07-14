@@ -180,7 +180,11 @@
           :header-cell-style="{ background: '#F8FAFC', color: '#475569', fontWeight: 600, fontSize: '13px' }"
           :cell-style="{ fontSize: '13px', color: '#334155' }"
         >
-          <el-table-column v-if="visibleColumns.serial_number" prop="serial_number" label="序号" width="70" align="center" />
+          <el-table-column v-if="visibleColumns.serial_number" label="序号" width="70" align="center">
+            <template #default="{ $index }">
+              {{ (currentPage - 1) * pageSize + $index + 1 }}
+            </template>
+          </el-table-column>
           <el-table-column v-if="!currentCustomerId && visibleColumns.customer_name" prop="customer_name" label="客户" width="100" align="center" show-overflow-tooltip />
           <el-table-column v-if="visibleColumns.project_name" prop="project_name" label="项目名称" min-width="120" align="center" show-overflow-tooltip />
           <el-table-column v-if="visibleColumns.hardware_version" prop="hardware_version" label="硬件版型" width="110" align="center" show-overflow-tooltip />
