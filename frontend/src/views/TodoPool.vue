@@ -73,8 +73,8 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, h, watch, onMounted } from 'vue'
+import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
 import draggable from 'vuedraggable'
 import {
@@ -110,17 +110,52 @@ const loadTasks = async () => {
   }
 }
 
+// 409 冲突统一处理：3 秒倒计时后自动刷新，不给用户选择权
+const handleConflict = (error) => {
+  if (error?.response?.status !== 409) return false
+  const countdown = ref(3)
+  const notification = ElNotification({
+    title: '任务已被修改',
+    message: h(() => h('div', { style: 'font-size: 14px' }, [
+      h('p', { style: 'margin: 0 0 6px' }, '该任务已被其他用户修改，请刷新后重试'),
+      h('p', { style: 'margin: 0; color: #909399; font-size: 13px' }, `${countdown.value} 秒后自动刷新`)
+    ])),
+    type: 'warning',
+    duration: 0,
+    showClose: false,
+  })
+  const timer = setInterval(() => {
+    countdown.value -= 1
+    if (countdown.value <= 0) {
+      clearInterval(timer)
+      notification.close()
+      loadTasks()
+    }
+  }, 1000)
+  return true
+}
+
 const renumberAndSave = async () => {
   const items = taskList.value.map((item, index) => ({
     id: item.id,
-    order: index + 1
+    order: index + 1,
+    version: item.version
   }))
   taskList.value.forEach((item, index) => {
     item.order = index + 1
   })
   try {
-    await batchReorder(items)
-  } catch (e) { /* 忽略 */ }
+    const res = await batchReorder(items)
+    // 用后端返回的权威 version 同步本地，避免连续排序时误触发 409
+    if (res?.items) {
+      taskList.value.forEach(item => {
+        const updated = res.items.find(i => i.id === item.id)
+        if (updated) item.version = updated.version
+      })
+    }
+  } catch (e) {
+    handleConflict(e)
+  }
 }
 
 const onDragEnd = async () => {
@@ -129,41 +164,52 @@ const onDragEnd = async () => {
 
 const handleToggleComplete = async (item) => {
   try {
-    await toggleComplete(item.id)
+    await toggleComplete(item.id, { version: item.version })
     item.is_completed = !item.is_completed
+    item.version += 1
   } catch (e) {
-    ElMessage.error('操作失败')
+    if (!handleConflict(e)) {
+      ElMessage.error('操作失败')
+    }
   }
 }
 
 const handleMoveToToday = async (item) => {
   try {
-    await moveToToday(item.id)
+    await moveToToday(item.id, { version: item.version })
     ElMessage.success('已设为今日任务')
     await loadTasks()
     emit('moved-to-today')
   } catch (e) {
-    ElMessage.error('操作失败')
+    if (!handleConflict(e)) {
+      ElMessage.error('操作失败')
+    }
   }
 }
 
 const handlePostpone = async (item) => {
   try {
-    await postponeTomorrow(item.id)
+    await postponeTomorrow(item.id, { version: item.version })
     item.postpone_tomorrow = true
+    item.version += 1
     ElMessage.success('已标记为明天')
   } catch (e) {
-    ElMessage.error('操作失败')
+    if (!handleConflict(e)) {
+      ElMessage.error('操作失败')
+    }
   }
 }
 
 const handleCancelPostpone = async (item) => {
   try {
-    await cancelPostpone(item.id)
+    await cancelPostpone(item.id, { version: item.version })
     item.postpone_tomorrow = false
+    item.version += 1
     ElMessage.success('已取消明天标记')
   } catch (e) {
-    ElMessage.error('操作失败')
+    if (!handleConflict(e)) {
+      ElMessage.error('操作失败')
+    }
   }
 }
 
@@ -188,9 +234,11 @@ const handleSubmit = async () => {
   }
   try {
     if (isEdit.value) {
+      const task = taskList.value.find(t => t.id === editId.value)
       await updateTaskItem(editId.value, {
         content: form.value.content.trim(),
-        remarks: form.value.remarks.trim()
+        remarks: form.value.remarks.trim(),
+        version: task?.version
       })
       ElMessage.success('修改成功')
     } else {
@@ -206,19 +254,25 @@ const handleSubmit = async () => {
     showForm.value = false
     await loadTasks()
   } catch (e) {
-    ElMessage.error(isEdit.value ? '修改失败' : '添加失败')
+    if (handleConflict(e)) {
+      showForm.value = false
+    } else {
+      ElMessage.error(isEdit.value ? '修改失败' : '添加失败')
+    }
   }
 }
 
 const handleDelete = async (item) => {
   try {
     await ElMessageBox.confirm('确定删除该任务？', '删除确认', { type: 'warning' })
-    await deleteTaskItem(item.id)
+    await deleteTaskItem(item.id, item.version)
     ElMessage.success('删除成功')
     await loadTasks()
   } catch (e) {
     if (e !== 'cancel') {
-      ElMessage.error('删除失败')
+      if (!handleConflict(e)) {
+        ElMessage.error('删除失败')
+      }
     }
   }
 }

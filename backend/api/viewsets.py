@@ -7,13 +7,30 @@ import json
 from django.http import StreamingHttpResponse
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view
+from rest_framework.exceptions import APIException
 from rest_framework.response import Response
-from django.db.models import Max, Q
+from django.db.models import Max, Q, F
 from .models import TaskModule, TaskItem, Customer, Project, HistorySnapshot
 from .serializers import TaskModuleSerializer, TaskItemSerializer, CustomerSerializer, ProjectSerializer, HistorySnapshotSerializer
 from .excel_parser import parse_excel_config
-
 from datetime import datetime
+
+
+class ConflictError(APIException):
+    """并发冲突异常（HTTP 409）"""
+    status_code = 409
+    default_detail = '该任务已被其他用户修改，请刷新后重试'
+    default_code = 'conflict'
+
+
+def _check_version(task, client_version):
+    """校验乐观锁版本号，不匹配则抛出 409"""
+    if client_version is not None and int(client_version) != task.version:
+        raise ConflictError({
+            'detail': '该任务已被其他用户修改，请刷新后重试',
+            'current_version': task.version,
+            'current_content': task.content,
+        })
 
 
 class TaskModuleViewSet(viewsets.ModelViewSet):
@@ -49,11 +66,25 @@ class TaskItemViewSet(viewsets.ModelViewSet):
             queryset = queryset.order_by('-created_at')
         return queryset
 
+    def perform_update(self, serializer):
+        """编辑任务时校验乐观锁 version"""
+        client_version = serializer.validated_data.get('version')
+        _check_version(serializer.instance, client_version)
+        serializer.save(version=serializer.instance.version + 1)
+
+    def perform_destroy(self, instance):
+        """删除任务时校验乐观锁 version"""
+        client_version = self.request.query_params.get('version')
+        _check_version(instance, client_version)
+        instance.delete()
+
     @action(detail=True, methods=['post'], url_path='move-to-todo')
     def move_to_todo(self, request, pk=None):
         task = self.get_object()
+        _check_version(task, request.data.get('version'))
         task.task_type = 'todo'
         task.order = 0
+        task.version += 1
         task.save()
         serializer = self.get_serializer(task)
         return Response(serializer.data)
@@ -61,12 +92,14 @@ class TaskItemViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='move-to-today')
     def move_to_today(self, request, pk=None):
         task = self.get_object()
+        _check_version(task, request.data.get('version'))
         max_order = TaskItem.objects.filter(
             module_id=task.module_id, task_type='today'
         ).aggregate(max_order=Max('order'))['max_order'] or 0
         task.task_type = 'today'
         task.order = max_order + 1
         task.postpone_tomorrow = False
+        task.version += 1
         task.save()
         serializer = self.get_serializer(task)
         return Response(serializer.data)
@@ -74,7 +107,9 @@ class TaskItemViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='postpone-tomorrow')
     def postpone_tomorrow(self, request, pk=None):
         task = self.get_object()
+        _check_version(task, request.data.get('version'))
         task.postpone_tomorrow = True
+        task.version += 1
         task.save()
         serializer = self.get_serializer(task)
         return Response(serializer.data)
@@ -82,7 +117,9 @@ class TaskItemViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='cancel-postpone')
     def cancel_postpone(self, request, pk=None):
         task = self.get_object()
+        _check_version(task, request.data.get('version'))
         task.postpone_tomorrow = False
+        task.version += 1
         task.save()
         serializer = self.get_serializer(task)
         return Response(serializer.data)
@@ -90,7 +127,9 @@ class TaskItemViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='toggle-complete')
     def toggle_complete(self, request, pk=None):
         task = self.get_object()
+        _check_version(task, request.data.get('version'))
         task.is_completed = not task.is_completed
+        task.version += 1
         task.save()
         serializer = self.get_serializer(task)
         return Response(serializer.data)
@@ -98,9 +137,31 @@ class TaskItemViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='batch-reorder')
     def batch_reorder(self, request):
         items = request.data.get('items', [])
+        # 批量校验 version
+        conflicts = []
         for item_data in items:
-            TaskItem.objects.filter(id=item_data.get('id')).update(order=item_data.get('order', 0))
-        return Response({'message': '排序更新成功'})
+            task_id = item_data.get('id')
+            client_version = item_data.get('version')
+            if client_version is not None:
+                task = TaskItem.objects.filter(id=task_id).first()
+                if task and int(client_version) != task.version:
+                    conflicts.append({'id': task_id, 'current_version': task.version})
+        if conflicts:
+            return Response(
+                {'detail': '部分任务已被其他用户修改，请刷新后重试', 'conflicts': conflicts},
+                status=status.HTTP_409_CONFLICT
+            )
+        # 全部通过才更新
+        for item_data in items:
+            TaskItem.objects.filter(id=item_data.get('id')).update(
+                order=item_data.get('order', 0), version=F('version') + 1
+            )
+        # 返回更新后的 version，供前端同步本地版本号
+        updated_ids = [item.get('id') for item in items]
+        updated_versions = list(
+            TaskItem.objects.filter(id__in=updated_ids).values('id', 'version')
+        )
+        return Response({'message': '排序更新成功', 'items': updated_versions})
 
     @action(detail=False, methods=['post'], url_path='check-postpone')
     def check_postpone(self, request):

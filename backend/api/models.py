@@ -33,6 +33,7 @@ class TaskItem(models.Model):
     is_completed = models.BooleanField('是否完成', default=False)
     postpone_tomorrow = models.BooleanField('推迟到明天', default=False)
     created_at = models.DateTimeField('创建时间', auto_now_add=True)
+    version = models.PositiveIntegerField('版本号', default=0)
 
     class Meta:
         ordering = ['order', '-created_at']

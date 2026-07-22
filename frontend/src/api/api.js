@@ -37,17 +37,17 @@ export const createTaskItem = (data) => api.post('/task-items/', data)
 
 export const updateTaskItem = (id, data) => api.patch(`/task-items/${id}/`, data)
 
-export const deleteTaskItem = (id) => api.delete(`/task-items/${id}/`)
+export const deleteTaskItem = (id, version) => api.delete(`/task-items/${id}/`, version != null ? { params: { version } } : undefined)
 
-export const moveToTodo = (id) => api.post(`/task-items/${id}/move-to-todo/`)
+export const moveToTodo = (id, data = {}) => api.post(`/task-items/${id}/move-to-todo/`, data)
 
-export const moveToToday = (id) => api.post(`/task-items/${id}/move-to-today/`)
+export const moveToToday = (id, data = {}) => api.post(`/task-items/${id}/move-to-today/`, data)
 
-export const postponeTomorrow = (id) => api.post(`/task-items/${id}/postpone-tomorrow/`)
+export const postponeTomorrow = (id, data = {}) => api.post(`/task-items/${id}/postpone-tomorrow/`, data)
 
-export const cancelPostpone = (id) => api.post(`/task-items/${id}/cancel-postpone/`)
+export const cancelPostpone = (id, data = {}) => api.post(`/task-items/${id}/cancel-postpone/`, data)
 
-export const toggleComplete = (id) => api.post(`/task-items/${id}/toggle-complete/`)
+export const toggleComplete = (id, data = {}) => api.post(`/task-items/${id}/toggle-complete/`, data)
 
 export const batchReorder = (items) => api.post('/task-items/batch-reorder/', { items })
 
