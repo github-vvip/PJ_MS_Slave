@@ -88,7 +88,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, CopyDocument, Close } from '@element-plus/icons-vue'
 import TodayTaskList from './TodayTaskList.vue'
@@ -260,11 +260,59 @@ const handleRenameModule = async () => {
   }
 }
 
+// ===== 第二层：轻量轮询 =====
+let pollTimer = null
+
+const startPolling = () => {
+  stopPolling()
+  if (!currentModuleId.value) return
+  pollTimer = setInterval(async () => {
+    if (document.hidden) return  // 标签页不可见时跳过
+    await Promise.all([
+      todayTaskRef.value?.silentRefresh(),
+      todoPoolRef.value?.silentRefresh()
+    ])
+  }, 30000)  // 30 秒一次
+}
+
+const stopPolling = () => {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+const handleVisibilityChange = () => {
+  if (document.hidden) {
+    stopPolling()
+  } else {
+    // 回到前台立即刷新一次，再恢复轮询
+    todayTaskRef.value?.silentRefresh()
+    todoPoolRef.value?.silentRefresh()
+    startPolling()
+  }
+}
+
+watch(currentModuleId, () => {
+  if (currentModuleId.value) {
+    startPolling()
+  } else {
+    stopPolling()
+  }
+})
+
 onMounted(async () => {
   try {
     await checkPostpone()
   } catch (e) { /* 忽略 */ }
   await loadModules()
+  startPolling()
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+})
+
+onUnmounted(() => {
+  stopPolling()
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 </script>
 

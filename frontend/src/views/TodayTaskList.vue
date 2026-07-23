@@ -15,7 +15,7 @@
       <template #item="{ element, index }">
         <div
           class="task-row"
-          :class="{ 'task-completed': element.is_completed }"
+          :class="{ 'task-completed': element.is_completed, 'task-highlighted': highlightedIds.includes(element.id) }"
         >
           <div class="task-left">
             <el-checkbox
@@ -88,6 +88,7 @@ const showForm = ref(false)
 const isEdit = ref(false)
 const editId = ref(null)
 const form = ref({ content: '', remarks: '' })
+const highlightedIds = ref([])
 
 const loadTasks = async () => {
   try {
@@ -121,6 +122,44 @@ const handleConflict = (error) => {
     }
   }, 1000)
   return true
+}
+
+// 静默刷新：供父组件轮询调用，差异更新 + 高亮变化
+const silentRefresh = async () => {
+  if (showForm.value) return false  // 编辑中跳过
+  try {
+    const data = await getTaskItems({ module: props.moduleId, task_type: 'today' })
+    const sortedData = data.sort((a, b) => a.order - b.order)
+    // 找出变化的任务（新增或字段变化）
+    const changedIds = []
+    sortedData.forEach(newItem => {
+      const local = taskList.value.find(t => t.id === newItem.id)
+      if (!local) {
+        changedIds.push(newItem.id)
+      } else {
+        const fields = ['content', 'remarks', 'is_completed', 'order', 'version', 'postpone_tomorrow', 'task_type']
+        if (fields.some(f => local[f] !== newItem[f])) {
+          changedIds.push(newItem.id)
+        }
+      }
+    })
+    // 检查是否有删除的任务
+    const newIds = sortedData.map(t => t.id)
+    const hasDeleted = taskList.value.some(t => !newIds.includes(t.id))
+    // 替换列表（Vue 的 key 机制会保留 DOM）
+    taskList.value = sortedData
+    // 高亮变化的行
+    changedIds.forEach(id => {
+      highlightedIds.value.push(id)
+      setTimeout(() => {
+        const idx = highlightedIds.value.indexOf(id)
+        if (idx > -1) highlightedIds.value.splice(idx, 1)
+      }, 1500)
+    })
+    return changedIds.length > 0 || hasDeleted
+  } catch (e) {
+    return false
+  }
 }
 
 const renumberAndSave = async () => {
@@ -272,7 +311,7 @@ onMounted(() => {
   loadTasks()
 })
 
-defineExpose({ loadTasks, taskList })
+defineExpose({ loadTasks, taskList, silentRefresh })
 </script>
 
 <style scoped>
@@ -302,6 +341,13 @@ defineExpose({ loadTasks, taskList })
 }
 .task-completed {
   opacity: 0.45;
+}
+.task-highlighted {
+  animation: highlightFlash 1.5s ease;
+}
+@keyframes highlightFlash {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 200, 80, 0); }
+  30% { box-shadow: 0 0 0 3px rgba(255, 200, 80, 0.5); }
 }
 .task-left {
   display: flex;
