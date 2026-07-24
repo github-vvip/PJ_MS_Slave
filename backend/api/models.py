@@ -59,6 +59,22 @@ class HistorySnapshot(models.Model):
         return f'{self.module_name} - {self.saved_at.strftime("%Y-%m-%d %H:%M")}'
 
 
+class ApkLink(models.Model):
+    """客户APK链接：标题 + 下载链接，支持双击内联编辑"""
+    title = models.CharField('标题', max_length=200)
+    url = models.CharField('链接', max_length=500, blank=True, default='')
+    order = models.PositiveIntegerField('排序', default=0)
+    created_at = models.DateTimeField('创建时间', auto_now_add=True)
+
+    class Meta:
+        ordering = ['order', 'created_at']
+        verbose_name = '客户APK'
+        verbose_name_plural = verbose_name
+
+    def __str__(self):
+        return self.title
+
+
 class Customer(models.Model):
     """客户表：按客户分组管理项目"""
     name = models.CharField('客户名称', max_length=100, unique=True)

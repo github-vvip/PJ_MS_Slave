@@ -2,7 +2,7 @@
 DRF 序列化器
 """
 from rest_framework import serializers
-from .models import TaskModule, TaskItem, Customer, Project, HistorySnapshot
+from .models import TaskModule, TaskItem, Customer, Project, HistorySnapshot, ApkLink
 
 
 class TaskItemSerializer(serializers.ModelSerializer):
@@ -80,3 +80,11 @@ class HistorySnapshotSerializer(serializers.ModelSerializer):
         model = HistorySnapshot
         fields = ['id', 'module_name', 'content', 'saved_at', 'content_hash']
         read_only_fields = ['saved_at']
+
+
+class ApkLinkSerializer(serializers.ModelSerializer):
+    """客户APK链接序列化器"""
+    class Meta:
+        model = ApkLink
+        fields = ['id', 'title', 'url', 'order', 'created_at']
+        read_only_fields = ['created_at']

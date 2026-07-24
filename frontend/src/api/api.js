@@ -81,6 +81,16 @@ export const batchImportProjects = (data) => api.post('/projects/batch-import/',
 
 export const searchProjects = () => api.post('/search/')
 
+/* ========== 客户APK API ========== */
+
+export const getApkLinks = () => api.get('/apk-links/')
+
+export const createApkLink = (data) => api.post('/apk-links/', data)
+
+export const updateApkLink = (id, data) => api.patch(`/apk-links/${id}/`, data)
+
+export const deleteApkLink = (id) => api.delete(`/apk-links/${id}/`)
+
 /* ========== 历史快照 API ========== */
 
 export const getHistorySnapshots = (params) => api.get('/history-snapshots/', { params })

@@ -269,7 +269,7 @@ onUnmounted(() => {
 }
 
 .concert-inner {
-  max-width: 1200px;
+  max-width: 1480px;
   margin: 0 auto;
 }
 
@@ -289,7 +289,7 @@ onUnmounted(() => {
 
 .concert-subtitle {
   font-family: 'Noto Sans SC', -apple-system, sans-serif;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 300;
   color: #C9A96E;
   letter-spacing: 0.35em;
@@ -301,7 +301,7 @@ onUnmounted(() => {
   text-align: center;
   padding: 40px;
   color: #999;
-  font-size: 14px;
+  font-size: 16px;
   background: #fafafa;
   border-radius: 8px;
   border: 1px dashed #ddd;
@@ -324,7 +324,7 @@ onUnmounted(() => {
   border-radius: 6px;
   background: #fff;
   color: #C9A96E;
-  font-size: 13px;
+  font-size: 15px;
   cursor: pointer;
   transition: all 0.25s ease;
 }
@@ -340,7 +340,7 @@ onUnmounted(() => {
 }
 
 .history-status {
-  font-size: 12px;
+  font-size: 14px;
   color: #999;
 }
 
@@ -352,7 +352,7 @@ onUnmounted(() => {
 }
 
 .countdown-label {
-  font-size: 11px;
+  font-size: 13px;
   color: #aaa;
   white-space: nowrap;
 }
@@ -415,7 +415,7 @@ onUnmounted(() => {
   line-height: 40px;
   text-align: center;
   font-family: 'Courier New', 'Consolas', monospace;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   color: #EC7C7C;
   text-shadow: 0 0 8px rgba(236, 124, 124, 0.3);
@@ -424,7 +424,7 @@ onUnmounted(() => {
 
 .roller-sep {
   font-family: 'Courier New', monospace;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   color: #C9A96E;
   text-shadow: 0 0 6px rgba(201, 169, 110, 0.4);
@@ -464,7 +464,7 @@ onUnmounted(() => {
 
 .panel-title {
   margin: 0;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: #333;
   letter-spacing: 0.04em;
@@ -476,7 +476,7 @@ onUnmounted(() => {
 
 .panel-count {
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: 13px;
   color: #C9A96E;
   background: rgba(201, 169, 110, 0.1);
   padding: 2px 8px;
@@ -506,14 +506,14 @@ onUnmounted(() => {
 }
 
 .record-date {
-  font-size: 14px;
+  font-size: 16px;
   color: #333;
   font-weight: 500;
   font-family: 'Courier New', monospace;
 }
 
 .record-count {
-  font-size: 11px;
+  font-size: 13px;
   color: #999;
   margin-top: 2px;
 }
@@ -522,14 +522,14 @@ onUnmounted(() => {
   padding: 24px;
   text-align: center;
   color: #ccc;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .history-empty-all {
   padding: 40px;
   text-align: center;
   color: #999;
-  font-size: 14px;
+  font-size: 16px;
   width: 100%;
 }
 
@@ -552,7 +552,7 @@ onUnmounted(() => {
 
 .detail-title {
   margin: 0;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: #333;
 }
@@ -563,7 +563,7 @@ onUnmounted(() => {
   border: none;
   background: none;
   color: #999;
-  font-size: 14px;
+  font-size: 16px;
   cursor: pointer;
   border-radius: 4px;
   display: flex;
@@ -587,7 +587,7 @@ onUnmounted(() => {
   width: 100%;
   border-collapse: collapse;
   font-family: 'Courier New', 'Consolas', monospace;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.8;
 }
 
@@ -607,7 +607,7 @@ onUnmounted(() => {
   user-select: none;
   background: #f5f5f5;
   border-right: 1px solid #eee;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .line-content {

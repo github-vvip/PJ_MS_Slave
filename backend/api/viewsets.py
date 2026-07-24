@@ -10,8 +10,8 @@ from rest_framework.decorators import action, api_view
 from rest_framework.exceptions import APIException
 from rest_framework.response import Response
 from django.db.models import Max, Q, F
-from .models import TaskModule, TaskItem, Customer, Project, HistorySnapshot
-from .serializers import TaskModuleSerializer, TaskItemSerializer, CustomerSerializer, ProjectSerializer, HistorySnapshotSerializer
+from .models import TaskModule, TaskItem, Customer, Project, HistorySnapshot, ApkLink
+from .serializers import TaskModuleSerializer, TaskItemSerializer, CustomerSerializer, ProjectSerializer, HistorySnapshotSerializer, ApkLinkSerializer
 from .excel_parser import parse_excel_config
 from datetime import datetime
 
@@ -432,6 +432,17 @@ class HistorySnapshotViewSet(viewsets.ModelViewSet):
             'saved': saved_count,
             'skipped': skipped_count,
         })
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response({'message': '删除成功'}, status=status.HTTP_200_OK)
+
+
+class ApkLinkViewSet(viewsets.ModelViewSet):
+    """客户APK链接视图集：支持 CRUD"""
+    queryset = ApkLink.objects.all()
+    serializer_class = ApkLinkSerializer
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
