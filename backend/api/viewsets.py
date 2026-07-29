@@ -10,6 +10,7 @@ from rest_framework.decorators import action, api_view
 from rest_framework.exceptions import APIException
 from rest_framework.response import Response
 from django.db.models import Max, Q, F
+from django.utils import timezone
 from .models import TaskModule, TaskItem, Customer, Project, HistorySnapshot, ApkLink
 from .serializers import TaskModuleSerializer, TaskItemSerializer, CustomerSerializer, ProjectSerializer, HistorySnapshotSerializer, ApkLinkSerializer
 from .excel_parser import parse_excel_config
@@ -109,6 +110,7 @@ class TaskItemViewSet(viewsets.ModelViewSet):
         task = self.get_object()
         _check_version(task, request.data.get('version'))
         task.postpone_tomorrow = True
+        task.postponed_at = timezone.now()
         task.version += 1
         task.save()
         serializer = self.get_serializer(task)
@@ -119,6 +121,7 @@ class TaskItemViewSet(viewsets.ModelViewSet):
         task = self.get_object()
         _check_version(task, request.data.get('version'))
         task.postpone_tomorrow = False
+        task.postponed_at = None
         task.version += 1
         task.save()
         serializer = self.get_serializer(task)
@@ -165,15 +168,14 @@ class TaskItemViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='check-postpone')
     def check_postpone(self, request):
-        from django.utils import timezone
         today = timezone.now().date()
         postponed_tasks = TaskItem.objects.filter(
             task_type='todo', postpone_tomorrow=True
         )
         moved_count = 0
         for task in postponed_tasks:
-            created_date = task.created_at.date() if task.created_at else today
-            if created_date < today:
+            postpone_date = task.postponed_at.date() if task.postponed_at else today
+            if postpone_date < today:
                 max_order = TaskItem.objects.filter(
                     module_id=task.module_id, task_type='today'
                 ).aggregate(max_order=Max('order'))['max_order'] or 0

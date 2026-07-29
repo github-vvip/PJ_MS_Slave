@@ -32,6 +32,7 @@ class TaskItem(models.Model):
     remarks = models.TextField('备注', blank=True, default='')
     is_completed = models.BooleanField('是否完成', default=False)
     postpone_tomorrow = models.BooleanField('推迟到明天', default=False)
+    postponed_at = models.DateTimeField('标记推迟时间', null=True, blank=True)
     created_at = models.DateTimeField('创建时间', auto_now_add=True)
     version = models.PositiveIntegerField('版本号', default=0)
 
